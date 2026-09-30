@@ -1,4 +1,5 @@
 models/
 *.gguf
 inspect_*.py
+results/rustcc_rss.xml
 .gitignore.tmp
