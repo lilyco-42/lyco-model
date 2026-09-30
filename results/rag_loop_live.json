@@ -1,0 +1,423 @@
+{
+ "independent": [
+  {
+   "question": "mpkg 记忆包是什么？有什么用？",
+   "retrieval_query": "mpkg 记忆包是什么？有什么用？",
+   "routed_search": true,
+   "evidence": [
+    "【本地库:lilyco\\docs\\ECOSYSTEM_ROADMAP.md】mgui / BitNet / WSL2-Linux-Kernel 实测非 fork（独立仓），BitNet 为 P3 参考件、WSL2 有 ⭐3 —— 不归档。\n\n## P1 契约上收（进行中）\n\nmpkg 格式上收 lystack 为单一契约源：\n- `lystack/proto/mpkg/mpkg.schema.json`（JSON Schema 2020-12）\n- golden 向量（样例包 → 期望 content-id / blob sha256，canon_json = 递归键排序 + 紧凑序列化）\n- lilyco-mpkg 内嵌 golden 一致性测试；cache-node 验证器对齐同一向量\n- 消除三处实现（lilyco-mpkg / cache-node / mpkg-registry 前端）的格式漂移\n\n## P2 结构重组（进行中）\n\n- **lyco_agent 拆仓**：`cloudstudio/` 运维脚本（a10_* 系列）迁私有 ops 仓，主仓只留 agent 核心 + 文档 —— 治理 374 文件低内聚\n- **cache-node we",
+    "【本地库:mpkg-registry\\README.md】# mpkg-registry —— 记忆包注册表\n\n> **学习一次，所有 agent 复用。** 内容寻址、可回放验证、信任随回放复利。\n> GitHub repo 即 registry（零基建，可镜像、可 U 盘传、可离线 fork）。\n\n## 1. 目录 = 真相，index.json = 派生物\n\n| 路径 | 角色 | 谁写 |\n|---|---|---|\n| `packages/*.mpkg` | **包文件本体**。identity = content-id（`sha256:` 前缀）；文件名 `<name>-<version>-<id12>.mpkg` 必须与实算 id 一致 | `mpkg.py publish` |\n| `attestations/<name>/<id12>/*.json` | **独立回放回执**（每台机器一次真实回放一份）。信任的唯一来源 | `mpkg.py attest` |\n| `index.json` | **派生索引**。= f(packages/, attestations/) —— 计数实算、身份实算、顺序确定 | `tools/"
+   ],
+   "retrieve_notes": [
+    "local:2",
+    "deepwiki:skip-no-repo"
+   ],
+   "memory_turns": 0,
+   "verify": {
+    "pass": true,
+    "reason": "overlap=5",
+    "overlap": 5,
+    "hits": [
+     "JSON",
+     "Schema",
+     "一致",
+     "mpkg",
+     "一致性测试"
+    ],
+    "invented_numbers": [],
+    "unsupported_terms": [],
+    "on_topic": true
+   },
+   "total_elapsed": 3.76,
+   "response": "1. **mpkg 记忆包** 是一种用于记录和验证包的机制，用于确保包的完整性、一致性、可信度和回放能力。它通过 JSON Schema 和一致性测试来实现，可以用于验证包的来源、内容和完整性。\n\n2. **mpkg 记忆包** 的作用是确保包的完整性、一致性、可信度和回放能力。它可以通过验证包的来源、内容和完整性来确保包的正确性和安全性。它还可以用于验证包的回放能力，确保包在不同机器上的回放是可靠的。\n\n3. **mpkg 记忆包** 的作用是确保包的完整性、一致性、可信度和回放能力。它可以通过验证包的来源、内容和完整性来确保包的正确性和安全性。它还可以用于验证包的回放能力，确保包在不同机器上的回放是可靠的。\n\n4. **mpkg 记忆包** 的作用是确保包的完整性、一致性、可信度和回放能力。它可以通过验证包的来源、内容和完整性来确保包的正确性和安全性。它还可以用于验证包的回放能力，确保包在不同机器上的回放是可靠的。",
+   "gen_ts": 69.6,
+   "elapsed": 3.66
+  },
+  {
+   "question": "纯 Rust 实现的 Luau 运行时是什么？",
+   "retrieval_query": "纯 Rust 实现的 Luau 运行时是什么？",
+   "routed_search": true,
+   "evidence": [
+    "【RustCC:写了个纯 Rust 实现的 Luau 语言与 JIT 虚拟机 ulua】GitHub · Playground 在线体验 · Crates.io\n最近开源了 ulua，一个用纯 Rust 实现的 Luau 语言运行时。Luau 是 Roblox 基于 Lua 5.1 深度改造演进的脚本语言，具备渐进静态类型系统、寄存器虚拟机和编译优化管线。\n在此之前，在 Rust 中嵌入使用 Luau 主要依赖基于 C++ 源码的 FFI 绑定（例如 mlua 的 luau feature）。使用 C++ 绑定需要依赖 C/C++ 交叉编译工具链，在需要静态编译、移植到嵌入式平台或编译为 WebAssembly 在浏览器内无缝运行时，配置流程会繁琐许多。\nulua 项目基于早期从 来源:https://rustcc.cn/article?id=ae4f691d-a220-4903-8989-78f2847f109b",
+    "【RustCC:使用 Rust 宏实现基于 Sea-ORM 的乐观锁样板代码自动化】在昨天的文章中，我们讨论了乐观锁（Optimistic Locking）作为高并发场景下保证数据一致性的重要手段。但乐观锁的实现，尤其是基于版本号（Version）或时间戳（Updated At）的 CAS (Compare-and-Swap) 模式，往往需要在应用的每个 Repository 中重复编写大量的样板代码。\n今天的核心主题是：如何利用 Rust 过程宏的强大能力，将这些繁琐的持久化逻辑自动化，让开发者只需声明字段，即可获得健壮的乐观锁支持。\n\n宏架构：分治与协作\n实现一个完整的、自动化的乐观锁流程，需要宏在两个不同的代码层面进行注入和协作：\n\n数据变更层 (ActiveModel 来源:https://rustcc.cn/article?id=1e3818da-3c6a-46eb-89ab-3e3144fc362c",
+    "【本地库:lilyco\\readme.md】er-flash 类 agent preset（首轮 core 工具过滤），新会话第一轮看不到 mcp 工具 —— 让模型先调用任意一次工具，下一轮全目录放开。\n- 插件无 `dsh.bundle` 时是 plain dependency，patch insert 显式引用其 name 即可加载。\n- 加/改插件后必须**重启 dsh web**（可用 `tasklist` 验证 `lbrush-windows.exe --mcp` 子进程确认插件已连接）。\n\n## Testing\n\n本地：\n\n```bash\n# Run all tests\ncargo test --workspace\n\n# Run a specific crate\ncargo test -p lilyco-core\ncargo t"
+   ],
+   "retrieve_notes": [
+    "rss:2",
+    "local:2"
+   ],
+   "memory_turns": 0,
+   "verify": {
+    "pass": true,
+    "reason": "overlap=28",
+    "overlap": 28,
+    "hits": [
+     "使用",
+     "语言运行时",
+     "具备渐进静态类型系统",
+     "Roblox",
+     "ae",
+     "https",
+     "虚拟机",
+     "宏实现基于"
+    ],
+    "invented_numbers": [],
+    "unsupported_terms": [],
+    "on_topic": true
+   },
+   "total_elapsed": 3.28,
+   "response": "1. RustCC 项目开源了 ulua，一个用纯 Rust 实现的 Luau 语言运行时。\n2. Luau 是 Roblox 基于 Lua 5.1 深度改造演进的脚本语言，具备渐进静态类型系统、寄存器虚拟机和编译优化管线。\n3. ulua 项目基于早期从 来源:https://rustcc.cn/article?id=ae4f691d-a220-4903-8989-78f2847f109b\n4. RustCC 项目使用 Rust 宏实现基于 Sea-ORM 的乐观锁样板代码自动化。",
+   "gen_ts": 51.2,
+   "elapsed": 2.93
+  },
+  {
+   "question": "什么是 GGUF？它和 llama.cpp 是什么关系？",
+   "retrieval_query": "什么是 GGUF？它和 llama.cpp 是什么关系？",
+   "routed_search": true,
+   "evidence": [
+    "【本地库:lilyco\\lilyco-bitnet\\docs\\BITNET_BRIDGE.md】itNet b1.58-2B 进程内推理 |\n| `roots` | 客户端 roots/list | 模型文件所在目录 |\n| 依赖 | 客户端声明 sampling 能力 | 一个 ~1.1GB gguf 文件 |\n| 隐私 | prompt 出设备 | **数据不出设备** |\n\n## 2. 模型下载与放置\n\n官方 gguf（I2_S 量化，~1.1GB）：\n\n```bash\n# 方式 A：huggingface-cli\nhuggingface-cli download microsoft/bitnet-b1.58-2B-4T-gguf \\\n  ggml-model-i2_s.gguf --local-dir ~/.lilyco/models\n\n# 方式 B：直接 curl\ncurl -L -o ~/.lilyco/models/bitnet-b1.58-2b-i2_s.gguf \\\n  https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf/resolve/main/ggml-model-i2_s.gguf\n```\n\n（",
+    "【DeepWiki:ggml-org/llama.cpp】GGUF（GGML Universal File）是 `llama.cpp` 原生使用的一种二进制文件格式，专为大型语言模型（LLMs）优化，旨在实现高效的内存映射和可扩展的元数据存储 。它与 `llama.cpp` 的关系在于，GGUF 是 `llama.cpp` 项目构建的基础 `ggml` 库所使用的文件格式，用于存储和加载模型 。\n\n## GGUF 概述\n\nGGUF 格式设计为单一文件容器，支持多种模型架构和张量类型，并提供强大的键值（KV）元数据系统，用于存储模型来源、分词器数据和采样参数等信息 。\n\n### 文件结构\nGGUF 文件由四个主要部分组成，按顺序排列 ：\n1.  **Header Section (头部)**：包含基本格式信息、版本和后续数组的数量 。\n2.  **KV Metadata Section (键值元数据)**：存储描述模型属性的键值对 。\n3.  **Tensor Info Section (张量信息)**：指定张量元数据（名称、形状、类型）以及数据段内的偏移量 。\n4.  **Tensor Data Section (张量数据)**：原始序列化的张量数据，通常是量化的权重矩阵，为高效访问而对齐 。\n\nGGUF 文件通常是小端序（little-endian），`gguf-py` 库提供了转换大小端序的工具，以确保跨平台兼容性 。\n\n### `g"
+   ],
+   "retrieve_notes": [
+    "local:1",
+    "deepwiki:live"
+   ],
+   "memory_turns": 0,
+   "verify": {
+    "pass": true,
+    "reason": "overlap=28",
+    "overlap": 28,
+    "hits": [
+     "文件通常是小端序",
+     "元数据系统",
+     "类型",
+     "并提供强大的键值",
+     "分词器数据和采样参数等信",
+     "张量数据",
+     "头部",
+     "用于存储模型来源"
+    ],
+    "invented_numbers": [],
+    "unsupported_terms": [],
+    "on_topic": true
+   },
+   "total_elapsed": 16.0,
+   "response": "GGUF 是一种用于存储和加载大型语言模型（LLMs）的二进制文件格式，它与 llama.cpp 项目构建的基础 `ggml` 库所使用的文件格式类似。GGUF 文件由四个主要部分组成，包括头部、KV 元数据、张量信息和张量数据。它支持多种模型架构和张量类型，并提供强大的键值（KV）元数据系统，用于存储模型来源、分词器数据和采样参数等信息。GGUF 文件通常是小端序（little-endian），`gguf-py` 库提供了转换大小端序的工具，以确保跨平台兼容性。",
+   "gen_ts": 52.3,
+   "elapsed": 2.68
+  },
+  {
+   "question": "llama.cpp 里 Q4_K_M 的精度损失是多少？",
+   "retrieval_query": "llama.cpp 里 Q4_K_M 的精度损失是多少？",
+   "routed_search": true,
+   "evidence": [
+    "【DeepWiki:ggml-org/llama.cpp】`llama.cpp` 中 `Q4_K_M` 量化类型的精度损失通常通过困惑度（Perplexity, PPL）和/或 Kullback-Leibler 散度（KLD）来衡量 。这些指标在 `llama-perplexity` 工具中进行计算 。\n\n## Q4_K_M 的精度损失衡量\n\n`llama.cpp` 项目通过 `llama-perplexity` 工具来评估不同量化模型的精度损失 。这个工具计算模型的困惑度（PPL）和 KL 散度 。\n\n在 `tools/quantize/README.md` 文件中，提供了 `meta-llama/Llama-3.1-8B` 模型在不同量化类型下的性能数据，其中包括 `Q4_K_M` 。\n\n对于 `Q4_K_M` 量化类型，`Llama-3.1-8B` 模型的性能指标如下 ：\n*   **bits/weight**: 4.8944 \n*   **size (GiB)**: 4.58 \n*   **prompt processing t/s @ 512**: 821.81 ± 21.44 \n*   **text generation t/s @ 128**: 71.93 ± 1.52 \n\n虽然这些数据没有直接给出 `Q4_K_M` 的困惑度或 KL 散度值，但它们提供了与其他量化方法（如 `F16`）的性能对比，间接反映了精度损失对推理速"
+   ],
+   "retrieve_notes": [
+    "local:0",
+    "deepwiki:live"
+   ],
+   "memory_turns": 0,
+   "verify": {
+    "pass": true,
+    "reason": "overlap=13",
+    "overlap": 13,
+    "hits": [
+     "KL",
+     "Kullback",
+     "llama",
+     "过困惑度",
+     "KLD",
+     "PPL",
+     "来衡量",
+     "工具中进行计算"
+    ],
+    "invented_numbers": [],
+    "unsupported_terms": [],
+    "on_topic": true
+   },
+   "total_elapsed": 16.81,
+   "response": "Q4_K_M 的精度损失通过困惑度（Perplexity, PPL）和/或 Kullback-Leibler 散度（KLD）来衡量。在 `llama-perplexity` 工具中进行计算。",
+   "gen_ts": 36.9,
+   "elapsed": 1.44
+  },
+  {
+   "question": "给我讲一个笑话",
+   "retrieval_query": "给我讲一个笑话",
+   "routed_search": false,
+   "evidence": [],
+   "retrieve_notes": [
+    "router:direct"
+   ],
+   "memory_turns": 0,
+   "verify": {
+    "pass": true,
+    "reason": "direct"
+   },
+   "total_elapsed": 0.59,
+   "response": "为什么程序员喜欢编程？\n\n因为他们可以编写代码，让计算机变得聪明。",
+   "gen_ts": 27.2,
+   "elapsed": 0.59
+  }
+ ],
+ "memory": [
+  {
+   "question": "什么是 GGUF？",
+   "retrieval_query": "什么是 GGUF？",
+   "routed_search": true,
+   "evidence": [
+    "【DeepWiki:ggml-org/llama.cpp】GGUF（GGML Universal File）是一种二进制文件格式，由 `llama.cpp` 原生使用，专门为大型语言模型（LLMs）设计，以实现高效的内存映射、可扩展的元数据存储以及对各种模型架构和张量类型的支持 <cite repo=\"ggml-org/llama.cpp\" path=\"ggml-org/llama.cpp\" start=\"7.1\" end=\"7.1\" />。它旨在优化LLM的推理性能，支持CPU和加速器后端 <cite repo=\"ggml-org/llama.cpp\" path=\"ggml-org/llama.cpp\" start=\"7.1\" end=\"7.1\" />。\n\n## GGUF 文件结构\n\nGGUF 文件由四个主要部分顺序组成 <cite repo=\"ggml-org/llama.cpp\" path=\"ggml-org/llama.cpp\" start=\"7.1\" end=\"7.1\" />：\n1.  **Header Section (头部区)**：包含基本格式信息、版本和后续数组的数量 <cite repo=\"ggml-org/llama.cpp\" path=\"ggml-org/llama.cpp\" start=\"7.1\" end=\"7.1\" />。\n2.  **KV Metadata Section (键值元数据区)**：存储描述模型属性"
+   ],
+   "retrieve_notes": [
+    "local:0",
+    "deepwiki:live"
+   ],
+   "memory_turns": 0,
+   "verify": {
+    "pass": true,
+    "reason": "overlap=10",
+    "overlap": 10,
+    "hits": [
+     "支持",
+     "Metadata",
+     "是一种二进制文件格式",
+     "Header",
+     "LLMs",
+     "GGUF",
+     "支持CPU和加速器后端",
+     "KV"
+    ],
+    "invented_numbers": [],
+    "unsupported_terms": [],
+    "on_topic": true
+   },
+   "total_elapsed": 14.3,
+   "response": "GGUF 是一种二进制文件格式，用于存储大型语言模型（LLMs）的参数和元数据。它旨在优化LLM的推理性能，支持CPU和加速器后端。GGUF 文件由四个主要部分组成，包括 Header Section 和 KV Metadata Section。",
+   "gen_ts": 59.7,
+   "elapsed": 1.0,
+   "judge": "是。"
+  },
+  {
+   "question": "它和 llama.cpp 是什么关系？",
+   "retrieval_query": "什么是 GGUF？ 它和 llama.cpp 是什么关系？",
+   "routed_search": true,
+   "evidence": [
+    "【本地库:lilyco\\lilyco-bitnet\\docs\\BITNET_BRIDGE.md】itNet b1.58-2B 进程内推理 |\n| `roots` | 客户端 roots/list | 模型文件所在目录 |\n| 依赖 | 客户端声明 sampling 能力 | 一个 ~1.1GB gguf 文件 |\n| 隐私 | prompt 出设备 | **数据不出设备** |\n\n## 2. 模型下载与放置\n\n官方 gguf（I2_S 量化，~1.1GB）：\n\n```bash\n# 方式 A：huggingface-cli\nhuggingface-cli download microsoft/bitnet-b1.58-2B-4T-gguf \\\n  ggml-model-i2_s.gguf --local-dir ~/.lilyco/models\n\n# 方式 B：直接 curl\ncurl -L -o ~/.lilyco/models/bitnet-b1.58-2b-i2_s.gguf \\\n  https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf/resolve/main/ggml-model-i2_s.gguf\n```\n\n（",
+    "【DeepWiki:ggml-org/llama.cpp】您正在询问 GGUF 文件格式及其与 `llama.cpp` 的关系。GGUF 是一种为大型语言模型 (LLM) 优化的二进制文件格式，而 `llama.cpp` 是一个使用 GGUF 格式进行 LLM 推理的 C/C++ 实现。\n\n## 什么是 GGUF？\n\nGGUF（GGML Universal File）是一种单文件容器格式，专门用于存储大型语言模型。它旨在实现高效的内存映射、可扩展的元数据存储以及对各种模型架构和张量类型的支持。\n\nGGUF 文件的主要结构包括四个部分：\n1.  **Header Section (头部)**：包含基本格式信息、版本和后续数组的数量。例如，它定义了魔术字符串 \"GGUF\" 和文件版本。\n2.  **KV Metadata Section (键值元数据)**：存储描述模型属性的键值对。这些元数据可以是各种类型，如整数、浮点数、布尔值、字符串和数组。\n3.  **Tensor Info Section (张量信息)**：指定张量的元数据，包括名称、形状、类型以及数据段内的偏移量。\n4.  **Tensor Data Section (张量数据)**：存储原始序列化的张量数据，通常是量化后的权重矩阵，并进行对齐以实现高效访问。\n\nGGUF 文件通常是小端序的，并且 `gguf-py` 库提供了用于转换字节序的工具。\n\n## GGUF 与 llama"
+   ],
+   "retrieve_notes": [
+    "local:1",
+    "deepwiki:live"
+   ],
+   "memory_turns": 2,
+   "verify": {
+    "pass": true,
+    "reason": "overlap=14",
+    "overlap": 14,
+    "hits": [
+     "LLM",
+     "Section",
+     "实现",
+     "格式进行",
+     "推理的",
+     "GGUF",
+     "一个",
+     "文件"
+    ],
+    "invented_numbers": [],
+    "unsupported_terms": [],
+    "on_topic": true
+   },
+   "total_elapsed": 15.16,
+   "response": "GGUF 是一种用于存储大型语言模型参数和元数据的二进制文件格式，而 llama.cpp 是一个使用 GGUF 格式进行 LLM 推理的 C/C++ 实现。GGUF 文件由四个主要部分组成，包括 Header Section 和 KV Metadata Section，而 llama.cpp 是一个使用 GGUF 进行 LLM 推理的 C/C++ 实现。",
+   "gen_ts": 47.3,
+   "elapsed": 1.8,
+   "judge": "答案用到了资料"
+  },
+  {
+   "question": "那 Q4_K_M 又是什么？",
+   "retrieval_query": "什么是 GGUF？ 它和 llama.cpp 是什么关系？ 那 Q4_K_M 又是什么？",
+   "routed_search": true,
+   "evidence": [
+    "【本地库:lilyco\\lilyco-bitnet\\docs\\BITNET_BRIDGE.md】itNet b1.58-2B 进程内推理 |\n| `roots` | 客户端 roots/list | 模型文件所在目录 |\n| 依赖 | 客户端声明 sampling 能力 | 一个 ~1.1GB gguf 文件 |\n| 隐私 | prompt 出设备 | **数据不出设备** |\n\n## 2. 模型下载与放置\n\n官方 gguf（I2_S 量化，~1.1GB）：\n\n```bash\n# 方式 A：huggingface-cli\nhuggingface-cli download microsoft/bitnet-b1.58-2B-4T-gguf \\\n  ggml-model-i2_s.gguf --local-dir ~/.lilyco/models\n\n# 方式 B：直接 curl\ncurl -L -o ~/.lilyco/models/bitnet-b1.58-2b-i2_s.gguf \\\n  https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf/resolve/main/ggml-model-i2_s.gguf\n```\n\n（",
+    "【DeepWiki:ggml-org/llama.cpp】GGUF（GGML Universal File）是 `llama.cpp` 项目原生使用的一种二进制文件格式，专为大型语言模型（LLMs）设计，旨在实现高效的内存映射和可扩展的元数据存储 。它与 `llama.cpp` 的关系是，GGUF 是 `llama.cpp` 用于存储模型权重和元数据的主要文件格式 。`Q4_K_M` 是一种量化技术，用于减少模型大小并提高推理速度，它是 GGUF 文件中张量数据的一种特定存储格式 。\n\n## GGUF 格式详解\n\nGGUF 文件格式由四个主要部分组成：Header Section、KV Metadata Section、Tensor Info Section 和 Tensor Data Section 。\n\n### 文件结构\nGGUF 文件的结构如下：\n1.  **Header Section**：包含文件魔数（\"GGUF\"）、版本、张量数量和键值对数量等基本信息 。\n2.  **KV Metadata Section**：存储模型的元数据，以键值对的形式存在，例如模型名称、描述、文件类型等 。这些键值对可以是多种数据类型，如 `UINT8`、`INT32`、`FLOAT32`、`STRING` 等 。\n3.  **Tensor Info Section**：描述每个张量的元数据，包括张量名称、维度、数据类型和在 Tensor Data "
+   ],
+   "retrieve_notes": [
+    "local:1",
+    "deepwiki:live"
+   ],
+   "memory_turns": 4,
+   "verify": {
+    "pass": true,
+    "reason": "overlap=8",
+    "overlap": 8,
+    "hits": [
+     "文件中张量数据的一种特定",
+     "量化",
+     "存储格式",
+     "GGUF",
+     "文件",
+     "是一种量化技术",
+     "理速度",
+     "用于减少模型大小并提高推"
+    ],
+    "invented_numbers": [],
+    "unsupported_terms": [],
+    "on_topic": true
+   },
+   "total_elapsed": 17.31,
+   "response": "Q4_K_M 是一种量化技术，用于减少模型大小并提高推理速度。它通过将模型参数压缩为小的二进制向量来实现，从而减少了模型的存储空间和计算开销。Q4_K_M 是 GGUF 文件中张量数据的一种特定存储格式。",
+   "gen_ts": 30.9,
+   "elapsed": 2.07,
+   "judge": "答案用到了资料"
+  },
+  {
+   "question": "它会让模型跑得更快吗？",
+   "retrieval_query": "什么是 GGUF？ 它和 llama.cpp 是什么关系？ 那 Q4_K_M 又是什么？ 它会让模型跑得更快吗？",
+   "routed_search": true,
+   "evidence": [
+    "【本地库:lilyco\\lilyco-bitnet\\docs\\BITNET_BRIDGE.md】itNet b1.58-2B 进程内推理 |\n| `roots` | 客户端 roots/list | 模型文件所在目录 |\n| 依赖 | 客户端声明 sampling 能力 | 一个 ~1.1GB gguf 文件 |\n| 隐私 | prompt 出设备 | **数据不出设备** |\n\n## 2. 模型下载与放置\n\n官方 gguf（I2_S 量化，~1.1GB）：\n\n```bash\n# 方式 A：huggingface-cli\nhuggingface-cli download microsoft/bitnet-b1.58-2B-4T-gguf \\\n  ggml-model-i2_s.gguf --local-dir ~/.lilyco/models\n\n# 方式 B：直接 curl\ncurl -L -o ~/.lilyco/models/bitnet-b1.58-2b-i2_s.gguf \\\n  https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf/resolve/main/ggml-model-i2_s.gguf\n```\n\n（",
+    "【本地库:lilyco\\lilyco-bitnet\\README.md】出设备。\n\n## 快速开始\n\n```bash\n# 1. 下载模型（约 1.1GB，一次性）\nhuggingface-cli download microsoft/bitnet-b1.58-2B-4T-gguf \\\n  ggml-model-i2_s.gguf --local-dir ~/.lilyco/models\nmv ~/.lilyco/models/ggml-model-i2_s.gguf ~/.lilyco/models/bitnet-b1.58-2b-i2_s.gguf\n\n# 2. CLI 本地推理（T0 只读，全离线）\ncargo run -p lilyco-bitnet -- bitnet-ask --prompt \"你好\" --max-tokens 128\n\n# 3. host 桥注入演示（工具内 ctx.sample → 本地推理）\ncargo run -p lilyco-bitnet -- bitnet-chat-demo --prompt \"介绍一下你自己\"\n\n# 4. MCP 服务器：Agent 直接可调（离线采样）\ncargo run -p lilyco-bi",
+    "【DeepWiki:ggml-org/llama.cpp】GGUF (GGML Universal File Format) 是 `ggml` 库使用的二进制文件格式，用于存储机器学习模型  。它被设计用于快速加载和内存映射 。`l"
+   ],
+   "retrieve_notes": [
+    "local:2",
+    "deepwiki:live"
+   ],
+   "memory_turns": 6,
+   "verify": {
+    "pass": false,
+    "reason": "unsupported-terms",
+    "overlap": 5,
+    "hits": [
+     "GGUF",
+     "文件",
+     "cpp",
+     "GB",
+     "llama"
+    ],
+    "invented_numbers": [],
+    "unsupported_terms": [
+     "Header",
+     "Metadata",
+     "Section"
+    ],
+    "on_topic": true
+   },
+   "total_elapsed": 18.21,
+   "response": "1. GGUF 是一种用于存储大型语言模型参数和元数据的二进制文件格式，它通过将模型参数压缩为小的二进制向量来减少模型的存储空间和计算开销，从而提高了推理速度。\n\n2. GGUF 文件由四个主要部分组成，包括 Header Section 和 KV Metadata Section，其中 Header Section 包括模型参数和元数据的标识符，KV Metadata Section 包括模型参数的二进制表示。\n\n3. GGUF 文件的大小约为 1.1GB，比 llama.cpp 更小，因此在推理速度方面可能更快。\n\n4. GGUF 文件的大小约为 1.1GB，比 llama.cpp 更小，因此在推理速度方面可能更快。",
+   "gen_ts": 54.6,
+   "elapsed": 2.88,
+   "judge": "是。"
+  }
+ ],
+ "memory_control": [
+  {
+   "question": "什么是 GGUF？",
+   "retrieval_query": "什么是 GGUF？",
+   "routed_search": true,
+   "evidence": [
+    "【DeepWiki:ggml-org/llama.cpp】GGUF（GGML Universal File）是一种二进制文件格式，由 `llama.cpp` 原生使用，专门为大型语言模型（LLMs）设计，以实现高效的内存映射、可扩展的元数据存储以及对各种模型架构和张量类型的支持 <cite repo=\"ggml-org/llama.cpp\" path=\"ggml-org/llama.cpp\" start=\"7.1\" end=\"7.1\" />。它旨在优化LLM的推理性能，支持CPU和加速器后端 <cite repo=\"ggml-org/llama.cpp\" path=\"ggml-org/llama.cpp\" start=\"7.1\" end=\"7.1\" />。\n\n## GGUF 文件结构\n\nGGUF 文件由四个主要部分顺序组成 <cite repo=\"ggml-org/llama.cpp\" path=\"ggml-org/llama.cpp\" start=\"7.1\" end=\"7.1\" />：\n1.  **Header Section (头部区)**：包含基本格式信息、版本和后续数组的数量 <cite repo=\"ggml-org/llama.cpp\" path=\"ggml-org/llama.cpp\" start=\"7.1\" end=\"7.1\" />。\n2.  **KV Metadata Section (键值元数据区)**：存储描述模型属性"
+   ],
+   "retrieve_notes": [
+    "local:0",
+    "deepwiki:cache"
+   ],
+   "memory_turns": 0,
+   "verify": {
+    "pass": true,
+    "reason": "overlap=10",
+    "overlap": 10,
+    "hits": [
+     "支持",
+     "Metadata",
+     "是一种二进制文件格式",
+     "Header",
+     "LLMs",
+     "GGUF",
+     "支持CPU和加速器后端",
+     "KV"
+    ],
+    "invented_numbers": [],
+    "unsupported_terms": [],
+    "on_topic": true
+   },
+   "total_elapsed": 1.08,
+   "response": "GGUF 是一种二进制文件格式，用于存储大型语言模型（LLMs）的模型参数和元数据。它旨在优化LLM的推理性能，支持CPU和加速器后端。GGUF 文件由四个主要部分组成，包括 Header Section 和 KV Metadata Section。",
+   "gen_ts": 61.0,
+   "elapsed": 1.0
+  },
+  {
+   "question": "它和 llama.cpp 是什么关系？",
+   "retrieval_query": "它和 llama.cpp 是什么关系？",
+   "routed_search": true,
+   "evidence": [
+    "【DeepWiki:ggml-org/llama.cpp】`llama.cpp` 是一个基于 `ggml` 库的项目，旨在用 C/C++ 实现大型语言模型 (LLM) 的推理，并支持多种硬件平台和优化  。它利用 `ggml` 库进行数值计算，而 `libllama` 则负责模型加载、上下文管理和推理例程 。\n\n## `llama.cpp` 与 `ggml` 的关系\n\n`llama.cpp` 项目是建立在 `ggml` 库之上的 。\n\n*   **`ggml` 库**：`ggml` 是一个模块化的张量计算库，负责处理 `llama.cpp` 中的数值计算 。它支持多种硬件加速后端，例如 CUDA、Metal、HIP、Vulkan 等，以优化推理性能  。\n*   **`llama.cpp` 项目**：`llama.cpp` 利用 `ggml` 提供的底层计算能力，实现了 LLM 的推理功能 。它包含 `libllama`，用于模型加载、上下文生命周期管理和推理例程 。\n\n简而言之，`ggml` 是 `llama.cpp` 的核心计算引擎，而 `llama.cpp` 则是在 `ggml` 的基础上构建的，用于实现 LLM 推理的完整应用 。\n\n## Notes\n\n用户的问题是关于 `llama.cpp` 与 `llama.cpp` 之间的关系，这可能是一个笔误。根据提供的上下文，`llama.cpp` 是一个项目，而 `ggml` 是其依赖"
+   ],
+   "retrieve_notes": [
+    "local:0",
+    "deepwiki:live"
+   ],
+   "memory_turns": 0,
+   "verify": {
+    "pass": true,
+    "reason": "overlap=18",
+    "overlap": 18,
+    "hits": [
+     "库的项目",
+     "则负责模型加载",
+     "llama",
+     "LLM",
+     "上下文管理和推理例程",
+     "项目",
+     "libllama",
+     "库进行数值计算"
+    ],
+    "invented_numbers": [],
+    "unsupported_terms": [],
+    "on_topic": true
+   },
+   "total_elapsed": 10.64,
+   "response": "`llama.cpp` 是一个基于 `ggml` 库的项目，用于实现大型语言模型 (LLM) 的推理。它利用 `ggml` 库进行数值计算，而 `libllama` 则负责模型加载、上下文管理和推理例程。因此，`llama.cpp` 是 `ggml` 的一部分，用于实现 LLM 推理的完整应用。",
+   "gen_ts": 56.9,
+   "elapsed": 1.53
+  },
+  {
+   "question": "那 Q4_K_M 又是什么？",
+   "retrieval_query": "那 Q4_K_M 又是什么？",
+   "routed_search": true,
+   "evidence": [],
+   "retrieve_notes": [
+    "local:0",
+    "deepwiki:skip-no-repo"
+   ],
+   "memory_turns": 0,
+   "verify": {
+    "pass": false,
+    "reason": "no-evidence"
+   },
+   "total_elapsed": 1.1,
+   "response": "Q4_K_M 是一个指标，用于衡量模型在 Q4 期间的性能表现。这个指标通常用于评估模型在特定时间段内的预测准确率和性能表现。如果您需要了解 Q4_K_M 的具体含义和计算方法，可以查阅相关资料或咨询相关领域的专家。",
+   "gen_ts": 60.8,
+   "elapsed": 1.02
+  },
+  {
+   "question": "它会让模型跑得更快吗？",
+   "retrieval_query": "它会让模型跑得更快吗？",
+   "routed_search": false,
+   "evidence": [],
+   "retrieve_notes": [
+    "router:direct"
+   ],
+   "memory_turns": 0,
+   "verify": {
+    "pass": true,
+    "reason": "direct"
+   },
+   "total_elapsed": 0.32,
+   "response": "是的，它会让模型跑得更快。",
+   "gen_ts": 34.2,
+   "elapsed": 0.32
+  }
+ ]
+}

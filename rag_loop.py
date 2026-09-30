@@ -1,18 +1,35 @@
-"""lyco rag_loop: router -> retrieve -> summarize -> verify.
+"""lyco rag_loop: router -> retrieve (cached) -> summarize (with memory) -> verify.
 
 Retrieval sources (no self-build, all adopted):
-  1. Wikipedia zh API (encyclopedia facts, on-demand)
-  2. DeepWiki official MCP https://mcp.deepwiki.com/mcp (repo knowledge)
-Summarizer: local chat model via llama-cli (never tested on memory).
-Loop cap: max 2 retrieval rounds (lyco OODA rule).
+  1. local kb: gh-cloned own repos (KB_DIR)
+  2. RustCC RSS (1h file cache)
+  3. DeepWiki official MCP https://mcp.deepwiki.com/mcp (repo knowledge)
+  4. Wikipedia zh API (encyclopedia facts, on-demand)
+
+Runner: llama-server (OpenAI-compatible endpoint, greedy decoding), so a turn
+carries real chat history. llama-cli --single-turn reloaded the model every
+turn and had no context at all -- that was the memory gap.
+
+Network evidence is cached on disk (EVIDENCE_TTL) because DeepWiki answers the
+same question differently on every call; `--offline` replays the cache only.
 """
-import subprocess, json, time, os, re, sys
+import subprocess, json, time, os, re, sys, hashlib
 import httpx
 
 MODEL_DIR = r"D:\gal\AliceInCradle\lyco-model\models"
-LLAMA_CLI = r"D:\APP\scoop\shims\llama-cli.exe"
 OUTPUT_DIR = r"D:\gal\AliceInCradle\lyco-model\results"
 CHAT_MODEL = os.path.join(MODEL_DIR, "chat_slm_qwen3_0p6b-Q4_K_M.gguf")
+SERVER_BIN = r"D:\APP\scoop\shims\llama-server.exe"
+SERVER_LOG = os.path.join(OUTPUT_DIR, "llama_server.log")
+HOST, PORT = "127.0.0.1", 8079
+BASE = f"http://{HOST}:{PORT}"
+N_CTX = "8192"
+
+CACHE_FILE = os.path.join(OUTPUT_DIR, "evidence_cache.json")
+EVIDENCE_TTL = 86400          # 24h: DeepWiki/RSS text is stable enough
+OFFLINE = "--offline" in sys.argv
+UNSUP_TOL = 1                 # evidence-free latin tokens we tolerate in an answer
+
 DEEPWIKI_MCP = "https://mcp.deepwiki.com/mcp"
 
 # Router: knowledge questions trigger search; chit-chat goes direct.
@@ -40,12 +57,23 @@ RSS_URL = "https://rustcc.cn/rss"
 RSS_CACHE = os.path.join(OUTPUT_DIR, "rustcc_rss.xml")
 RSS_TTL = 3600
 
+# Anaphora: a turn that refers back to the previous topic instead of naming it.
+ANAPHORA = ["它", "他", "她", "这个", "那个", "这些", "那些", "其中", "还有",
+            "然后", "继续", "刚才", "前面", "上面", "又", "这样", "那样"]
+
+# Memory window: prior user/assistant turns kept in the prompt. The 0.6B model
+# loses the thread long before the context window fills up, so cap by content.
+HISTORY_TURNS = 4
+HISTORY_CHARS = 900
+TOPIC_CHARS = 160       # resolved-query memory kept for follow-up retrieval
+EVIDENCE_POOL_CHARS = 4000  # conversation-wide claims verify may cite
+
 
 def tokens(question):
     toks = set()
     for w in re.findall(r"[A-Za-z0-9_+\-#]{2,}", question):
         toks.add(w.lower())
-    for run in re.findall(r"[\u4e00-\u9fff]{2,}", question):
+    for run in re.findall(r"[一-鿿]{2,}", question):
         toks.add(run)
         for i in range(len(run) - 1):
             toks.add(run[i:i + 2])
@@ -105,8 +133,9 @@ def rss_search(client, question, topn=2):
     import xml.etree.ElementTree as ET
     toks = tokens(question)
     try:
-        if (os.path.exists(RSS_CACHE) and
-                time.time() - os.path.getmtime(RSS_CACHE) < RSS_TTL):
+        fresh = (os.path.exists(RSS_CACHE) and
+                 time.time() - os.path.getmtime(RSS_CACHE) < RSS_TTL)
+        if fresh or OFFLINE:
             with open(RSS_CACHE, encoding="utf-8",
                       errors="replace") as f:
                 xml_text = f.read()
@@ -173,7 +202,6 @@ def wiki_search(client, question):
         if r.status_code != 200:
             return f"__ERR__ wiki: http={r.status_code}"
         titles = r.json()[1]
-        titles = r.json()[1]
         if not titles:
             return ""
         title = titles[0]
@@ -211,9 +239,9 @@ def mcp_rpc(client, session, payload):
 
 
 def deepwiki_ask(client, repo, question):
-    """Official DeepWiki MCP: initialize -> tools/list -> ask_question."""
+    """Official DeepWiki MCP: initialize -> tools/call -> ask_wiki_question."""
     try:
-        sess, msgs = mcp_rpc(client, None, {
+        sess, _ = mcp_rpc(client, None, {
             "jsonrpc": "2.0", "id": 1, "method": "initialize",
             "params": {"protocolVersion": "2024-11-05", "capabilities": {},
                        "clientInfo": {"name": "lyco-rag", "version": "0.1"}}})
@@ -234,6 +262,63 @@ def deepwiki_ask(client, repo, question):
     except Exception as e:
         return f"__ERR__ deepwiki: {str(e)[:120]}"
 
+
+# ---------------------------------------------------------------- cache layer
+
+_cache = None
+
+
+def cache():
+    global _cache
+    if _cache is None:
+        try:
+            with open(CACHE_FILE, encoding="utf-8") as f:
+                _cache = json.load(f)
+        except Exception:
+            _cache = {}
+    return _cache
+
+
+def cache_get(key, allow_stale=False):
+    e = cache().get(key)
+    if not e:
+        return None
+    if not allow_stale and time.time() - e["t"] > EVIDENCE_TTL:
+        return None
+    return e["v"]
+
+
+def cache_put(key, val):
+    cache()[key] = {"t": time.time(), "v": val}
+    tmp = CACHE_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(cache(), f, ensure_ascii=False, indent=0)
+    os.replace(tmp, CACHE_FILE)
+
+
+def cache_key(source, question, repo=""):
+    raw = f"{source}|{repo}|{question}".encode("utf-8")
+    return hashlib.sha1(raw).hexdigest()
+
+
+def cached_lookup(source, question, fetch, repo=""):
+    """Return (text, note). Network only on miss, unless --offline."""
+    key = cache_key(source, question, repo)
+    hit = cache_get(key, allow_stale=OFFLINE)
+    if hit is not None:
+        return hit, f"{source}:cache"
+    if OFFLINE:
+        return "", f"{source}:cache-miss-offline"
+    val = fetch()
+    if not val:
+        return "", f"{source}:empty"
+    if val.startswith("__ERR__"):
+        return "", val[:80]
+    cache_put(key, val)
+    return val, f"{source}:live"
+
+
+# ------------------------------------------------------------------- retrieve
 
 def retrieve(question, max_rounds=2, max_chars=1200):
     """OODA Observe/Orient: gather up to max_rounds sources (no early
@@ -257,24 +342,21 @@ def retrieve(question, max_rounds=2, max_chars=1200):
             tried += 1
         elif src == "deepwiki":
             if repo:
-                d = deepwiki_ask(client, repo, question)
-                if d and not d.startswith("__ERR__"):
-                    evidence.append(d)
-                    notes.append(f"deepwiki:{repo}")
-                elif d:
-                    notes.append(d[:80])
+                txt, note = cached_lookup(
+                    "deepwiki", question,
+                    lambda: deepwiki_ask(client, repo, question), repo)
+                if txt:
+                    evidence.append(txt)
+                notes.append(note)
             else:
                 notes.append("deepwiki:skip-no-repo")
             tried += 1
         elif src == "wiki":
-            w = wiki_search(client, question)
-            if w and not w.startswith("__ERR__"):
-                evidence.append(w)
-                notes.append("wiki:hit")
-            elif w:
-                notes.append(w[:80])
-            else:
-                notes.append("wiki:empty")
+            txt, note = cached_lookup(
+                "wiki", question, lambda: wiki_search(client, question))
+            if txt:
+                evidence.append(txt)
+            notes.append(note)
             tried += 1
     client.close()
     # cap total evidence for the 0.6B context window
@@ -287,98 +369,299 @@ def retrieve(question, max_rounds=2, max_chars=1200):
     return kept, notes
 
 
-def dec(b):
-    if not b:
+# ---------------------------------------------------------------------- model
+
+def server_up():
+    try:
+        return httpx.get(BASE + "/health", timeout=3).status_code == 200
+    except Exception:
+        return False
+
+
+def server_model():
+    try:
+        d = httpx.get(BASE + "/v1/models", timeout=3).json()
+        return (d.get("models") or [{}])[0].get("model", "")
+    except Exception:
         return ""
-    for enc in ("utf-8", "gbk", "gb18030"):
-        try:
-            return b.decode(enc)
-        except Exception:
-            continue
-    return b.decode("utf-8", errors="replace")
 
 
-def summarize(question, evidence, searched):
-    """OODA Act: chat model only summarizes retrieved evidence."""
-    if evidence:
-        prompt = ("【检索到的资料】\n" + "\n".join(evidence) +
-                  f"\n\n【用户问题】\n{question}\n\n"
-                  "要求：只根据上述资料回答，资料没有的内容就说不知道。"
-                  "用2-4句话总结要点。")
-    elif searched:
-        prompt = (f"【用户问题】\n{question}\n\n"
-                  "要求：没有检索到相关资料，请直接说不知道，并说明可以去哪里查。")
-    else:
-        prompt = question
+def ensure_server(model=CHAT_MODEL, timeout=240):
+    """Reuse a running llama-server, else start one. Returns the Popen we
+    spawned (None when an existing server was reused)."""
+    if server_up():
+        loaded = server_model()
+        if os.path.normcase(loaded) != os.path.normcase(model):
+            raise RuntimeError(
+                f"a llama-server is already on {BASE} serving {loaded!r}, "
+                f"not {model!r}; stop it or change PORT")
+        return None
+    with open(SERVER_LOG, "ab") as log:
+        p = subprocess.Popen(
+            [SERVER_BIN, "-m", model, "--host", HOST, "--port", str(PORT),
+             "-c", N_CTX, "-np", "1", "--temp", "0"],
+            stdout=log, stderr=log)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if p.poll() is not None:
+            raise RuntimeError(f"llama-server exited rc={p.returncode} "
+                               f"(see {SERVER_LOG})")
+        if server_up():
+            return p
+        time.sleep(2)
+    p.terminate()
+    raise RuntimeError(f"llama-server not healthy after {timeout}s")
+
+
+def chat(messages, n_predict=256):
+    """One greedy completion. Greedy + cached evidence == replayable."""
     t0 = time.time()
-    p = subprocess.run(
-        [LLAMA_CLI, "-m", CHAT_MODEL, "-p", prompt, "-n", "256",
-         "--single-turn", "--no-display-prompt"],
-        capture_output=True, timeout=180)
+    r = httpx.post(BASE + "/v1/chat/completions", timeout=300, json={
+        "messages": messages,
+        "max_tokens": n_predict,
+        "temperature": 0.0,
+        "chat_template_kwargs": {"enable_thinking": False}})
+    r.raise_for_status()
+    d = r.json()
     dt = time.time() - t0
-    out = dec(p.stdout) + dec(p.stderr)
-    m = re.search(r"Generation:\s*([\d.]+)\s*t/s", out)
-    # long-prompt echo is truncated with a "...(truncated)" marker and the
-    # answer follows it; short prompts echo verbatim as "> "+prompt
-    if "(truncated)" in out:
-        body = out.split("(truncated)")[-1]
+    text = (d.get("choices") or [{}])[0].get("message", {}).get("content")
+    text = (text or "").strip()
+    ct = (d.get("usage") or {}).get("completion_tokens") or 0
+    return {"response": text,
+            "gen_ts": round(ct / dt, 1) if dt and ct else None,
+            "elapsed": round(dt, 2)}
+
+
+def evidence_block(evidence, question):
+    return ("【检索到的资料】\n" + "\n".join(evidence) +
+            f"\n\n【用户问题】\n{question}")
+
+
+def system_prompt(searched, has_evidence):
+    if searched and has_evidence:
+        return ("你是问答助手。用户消息里会附上【检索到的资料】，"
+                "只根据这些资料回答，资料没有的内容就说不知道。")
+    if searched:
+        return ("你是问答助手。这次没有检索到相关资料，"
+                "请直接说不知道，并说明可以去哪里查。")
+    return "你是一个中文助手，简洁自然地回答。"
+
+
+def summarize(question, evidence, searched, history=()):
+    """OODA Act: chat model summarizes retrieved evidence, with the prior
+    turns of this conversation in context. Evidence rides on the current turn
+    only -- the stored history stays clean user/assistant text."""
+    if evidence:
+        user = (evidence_block(evidence, question) +
+                "\n\n要求：只根据上述资料回答，资料没有的内容就说不知道。"
+                "用 2-4 句话总结要点。")
     else:
-        marker = "> " + prompt
-        body = out.split(marker)[-1] if marker in out else out
-    body = re.sub(r"\[ ?Prompt:.*", "", body)
-    body = body.split("Exiting...")[0].strip()
-    return {"response": body[-3000:],
-            "gen_ts": float(m.group(1)) if m else None,
-            "elapsed": round(dt, 2), "rc": p.returncode}
+        user = question
+    msgs = [{"role": "system",
+             "content": system_prompt(searched, bool(evidence))}]
+    msgs += [{"role": m["role"], "content": m["content"]} for m in history]
+    msgs.append({"role": "user", "content": user})
+    return chat(msgs)
 
 
-def verify(question, evidence, response, searched=True):
-    """OODA Re-observe: keyword overlap between evidence and response."""
+# --------------------------------------------------------------------- verify
+
+def latin_terms(text):
+    return set(re.findall(r"[A-Za-z][A-Za-z0-9_+#.\-]{2,}", text))
+
+
+def digit_claims(text):
+    """Numbers that carry a precision claim (decimal, %, or 3+ digits)."""
+    return set(n for n in re.findall(r"\d+(?:[.,]\d+)?%?", text)
+               if re.search(r"[.,%]\d|\d{3}", n))
+
+
+def verify(question, evidence, response, searched=True, anchors=None,
+           prior_evidence=()):
+    """OODA Re-observe. Overlap alone only proves the model copied; it does
+    not prove it copied *right*, so every concrete claim in the answer has to
+    exist in the evidence too.
+
+    The haystack is the whole conversation's evidence, not just this turn's:
+    with memory a fact learned two turns ago is still supported, and claiming
+    it again must not read as a hallucination."""
     if not searched:
         return {"pass": True, "reason": "direct"}
-    if not evidence:
+    ev_all = list(evidence) + list(prior_evidence)
+    if not ev_all:
         return {"pass": "不知道" in response, "reason": "no-evidence"}
+    hay = "\n".join(ev_all) + "\n" + question
+    hay_l = hay.lower()
+
     words = set()
-    for ev in evidence:
-        for w in re.findall(r"[\u4e00-\u9fffA-Za-z]{2,12}", ev):
+    for ev in ev_all:
+        for w in re.findall(r"[一-鿿A-Za-z]{2,12}", ev):
             if w not in STOPWORDS:
                 words.add(w)
-    hits = [w for w in words if w in response]
-    return {"pass": len(hits) >= 2, "reason": f"overlap={len(hits)}",
-            "hits": hits[:8]}
+    # sorted: set order is hash-randomized per process, and the record has to
+    # replay identically (verdict was stable, the hits sample was not).
+    hits = [w for w in sorted(words) if w in response]
+
+    # a claim the evidence never made -> hallucination
+    unsup = sorted(t for t in latin_terms(response) if t.lower() not in hay_l)
+    fab_num = sorted(n for n in digit_claims(response) if n not in hay)
+
+    anch = anchors if anchors is not None else tokens(question)
+    anch = [a for a in anch if is_anchor(a)]
+    rel = any(a in response or a.lower() in response.lower() for a in anch)
+
+    reasons = []
+    if len(hits) < 2:
+        reasons.append("low-overlap")
+    if not rel:
+        reasons.append("off-topic")
+    if fab_num:
+        reasons.append("invented-numbers")
+    if len(unsup) > UNSUP_TOL:
+        reasons.append("unsupported-terms")
+    return {"pass": not reasons,
+            "reason": ",".join(reasons) or f"overlap={len(hits)}",
+            "overlap": len(hits), "hits": hits[:8],
+            "invented_numbers": fab_num,
+            "unsupported_terms": unsup[:8],
+            "on_topic": rel}
 
 
-def answer(question):
-    """One closed OODA loop per dialogue turn."""
-    t0 = time.time()
-    routed = need_search(question)
-    if not routed:
-        ev, notes = [], ["router:direct"]
-    else:
-        ev, notes = retrieve(question)
-    s = summarize(question, ev, searched=routed)
-    v = verify(question, ev, s["response"], searched=routed)
-    return {"question": question, "routed_search": routed,
-            "evidence": ev, "retrieve_notes": notes,
-            "verify": v, "total_elapsed": round(time.time() - t0, 2), **s}
+def judge(question, evidence, response):
+    """Second model pass: does the answer actually rest on the evidence?
+    Advisory only -- a 0.6B grading a 0.6B is not a gate."""
+    msgs = [{"role": "system", "content": "你只做一件事：判断答案是否用了给定资料的内容。只回答 是 或 否。"},
+            {"role": "user",
+             "content": f"资料：\n{(evidence[0] if evidence else '')[:400]}\n\n"
+                        f"问题：{question}\n\n答案：{response}\n\n答案用到资料了吗？"}]
+    try:
+        return chat(msgs, n_predict=4)["response"][:8]
+    except Exception as e:
+        return f"judge-err:{str(e)[:60]}"
+
+
+# --------------------------------------------------------------- conversation
+
+class Conversation:
+    """Multi-turn chat over the RAG loop. Each turn keeps its own evidence,
+    but the user/assistant history is shared -- that is the memory."""
+
+    def __init__(self):
+        self.turns = []      # clean user/assistant pairs, no evidence blobs
+        self.topic = ""      # last resolved query that went through retrieval
+        self.evidence_pool = ""   # what this conversation is allowed to claim
+
+    def window(self):
+        sel, total = [], 0
+        for m in reversed(self.turns):
+            if len(sel) >= HISTORY_TURNS * 2:
+                break
+            if total + len(m["content"]) > HISTORY_CHARS:
+                break
+            sel.append(m)
+            total += len(m["content"])
+        return list(reversed(sel))
+
+    def is_followup(self, q):
+        return bool(self.topic) and any(a in q for a in ANAPHORA)
+
+    def retrieval_query(self, q):
+        """An '它是什么' turn has no retrievable terms; borrow the previous
+        topic so search still finds something. topic is the *resolved* query,
+        so a chain of follow-ups keeps accumulating the original anchors
+        instead of degrading into pronouns."""
+        if self.is_followup(q) and self.topic:
+            return f"{self.topic} {q}"
+        return q
+
+    def ask(self, q, run_judge=False):
+        t0 = time.time()
+        rq = self.retrieval_query(q)
+        routed = need_search(q) or (rq != q and need_search(rq))
+        if routed:
+            ev, notes = retrieve(rq)
+        else:
+            ev, notes = [], ["router:direct"]
+        hist = self.window()
+        s = summarize(q, ev, searched=routed, history=hist)
+        prior = [self.evidence_pool] if self.evidence_pool else ()
+        v = verify(rq, ev, s["response"], searched=routed,
+                   anchors=tokens(rq), prior_evidence=prior)
+        rec = {"question": q, "retrieval_query": rq,
+               "routed_search": routed, "evidence": ev,
+               "retrieve_notes": notes, "memory_turns": len(hist),
+               "prior_evidence_chars": len(self.evidence_pool),
+               "verify": v,
+               "total_elapsed": round(time.time() - t0, 2), **s}
+        if run_judge:
+            rec["judge"] = judge(q, ev, s["response"])
+        self.turns.append({"role": "user", "content": q})
+        self.turns.append({"role": "assistant", "content": s["response"]})
+        if routed and ev:
+            self.topic = rq[-TOPIC_CHARS:]
+            self.evidence_pool = (
+                "\n".join(ev) + "\n" + self.evidence_pool)[-EVIDENCE_POOL_CHARS:]
+        return rec
+
+
+INDEPENDENT = [
+    "mpkg 记忆包是什么？有什么用？",
+    "纯 Rust 实现的 Luau 运行时是什么？",
+    "什么是 GGUF？它和 llama.cpp 是什么关系？",
+    "llama.cpp 里 Q4_K_M 的精度损失是多少？",
+    "给我讲一个笑话",
+]
+
+# One topic carried across turns: turns 2 and 3 name nothing, they only point.
+MEMORY_SESSION = [
+    "什么是 GGUF？",
+    "它和 llama.cpp 是什么关系？",
+    "那 Q4_K_M 又是什么？",
+    "它会让模型跑得更快吗？",
+]
+
+
+def run():
+    proc = ensure_server()
+    out = {"independent": [], "memory": [], "memory_control": []}
+    try:
+        print("=== A. independent turns (regression) ===", flush=True)
+        for i, q in enumerate(INDEPENDENT, 1):
+            r = Conversation().ask(q)
+            out["independent"].append(r)
+            print(f"[{i}/{len(INDEPENDENT)}] search={r['routed_search']} "
+                  f"ev={len(r['evidence'])} notes={r['retrieve_notes']} "
+                  f"verify={r['verify']['pass']}/{r['verify']['reason']} "
+                  f"el={r['total_elapsed']}s :: {q[:26]}", flush=True)
+
+        print("\n=== B. one conversation with memory ===", flush=True)
+        conv = Conversation()
+        for i, q in enumerate(MEMORY_SESSION, 1):
+            r = conv.ask(q, run_judge=True)
+            out["memory"].append(r)
+            print(f"[{i}/{len(MEMORY_SESSION)}] mem={r['memory_turns']} "
+                  f"followup={r['retrieval_query'] != q} "
+                  f"ev={len(r['evidence'])} judge={r.get('judge')} "
+                  f"verify={r['verify']['pass']}/{r['verify']['reason']} "
+                  f":: {q[:24]}", flush=True)
+            print(f"      -> {r['response'][:150]}", flush=True)
+
+        print("\n=== C. same turns, memory disabled (control) ===", flush=True)
+        for i, q in enumerate(MEMORY_SESSION, 1):
+            r = Conversation().ask(q)
+            out["memory_control"].append(r)
+            print(f"[{i}/{len(MEMORY_SESSION)}] mem=0 "
+                  f"ev={len(r['evidence'])} :: {q[:24]}", flush=True)
+            print(f"      -> {r['response'][:150]}", flush=True)
+    finally:
+        if proc is not None:
+            proc.terminate()
+
+    dst = os.path.join(OUTPUT_DIR, "rag_loop_memory.json")
+    with open(dst, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=1)
+    print(f"\nsaved {dst}")
 
 
 if __name__ == "__main__":
-    demo = [
-        "mpkg 记忆包是什么？有什么用？",
-        "纯 Rust 实现的 Luau 运行时是什么？",
-        "什么是 GGUF？它和 llama.cpp 是什么关系？",
-        "llama.cpp 里 Q4_K_M 的精度损失是多少？",
-        "给我讲一个笑话",
-    ]
-    results = []
-    for i, q in enumerate(demo, 1):
-        r = answer(q)
-        results.append(r)
-        print(f"[{i}/{len(demo)}] search={r['routed_search']} "
-              f"ev={len(r['evidence'])} verify={r['verify']} "
-              f"el={r['total_elapsed']}s :: {q[:30]}", flush=True)
-    with open(os.path.join(OUTPUT_DIR, "rag_loop_demo.json"),
-              "w", encoding="utf-8") as f:
-        json.dump(results, f, ensure_ascii=False, indent=1)
-    print("saved rag_loop_demo.json")
+    run()

@@ -147,4 +147,82 @@ Rust 类 → RustCC RSS 优先；repo 问题 → DeepWiki；其余默认顺序�
 
 ---
 
+## 10. 多轮记忆 + 证据缓存 + verify 升级
+
+第 9 节末尾自评的三个缺口，动了两个半：没有多轮记忆、verify 是玩具；"0.6B 总结薄"属于模型层，没动。
+
+**Runner：llama-cli → llama-server**
+
+`llama-cli --single-turn` 每轮重载模型、没有上下文，答案还得从 stdout 回显里按 `...(truncated)`
+切——第 9 节修的 4 个 bug 里，"回显截断提取"和"verify 被回显污染"这两个都出在这套解析上。
+`llama-server` 常驻 + OpenAI 兼容
+`/v1/chat/completions`：历史直接进 messages，`temperature=0` 贪心，回显解析整段删掉。
+脚本自己拉起或复用 server（复用前校验 `/v1/models` 真的是目标 GGUF，防止静默连到别的模型）。
+
+| | llama-cli 单轮 | llama-server |
+|---|---|---|
+| 单轮耗时（含检索） | ~3.0 s（模型加载占大头） | 0.31–3.46 s |
+| 上下文 | 无 | 最近 4 轮 user/assistant（≤900 字） |
+| 答案提取 | 按回显截断标记切 | `choices[0].message.content` |
+
+### ① 多轮记忆（`Conversation`）
+
+- 结构：system(指令) + 历史轮 + 本轮(资料+问题)。资料只挂本轮、不进历史，否则第 2 轮上下文就爆。
+- 指代解析：出现 `它/那/还有/然后…` 判为 follow-up，检索词 = 上一轮**已解析**的查询 + 本轮问题，
+  锚点因此逐轮累积。第一版把 topic 存成原始问题，第 3 轮就退化成"它和 llama.cpp…"，GGUF 丢了
+  ——这坑是 dry-run（不起模型、只 stub 检索）打出来的。
+
+同一 4 题，有记忆 vs 每题新开会话（`results/rag_loop_memory.json` 的 memory / memory_control）：
+
+| 轮 | 有记忆 | 无记忆（对照） |
+|---|---|---|
+| "它和 llama.cpp 是什么关系？" | ev=2，答出 GGUF↔llama.cpp | ev=1，只讲 llama.cpp/ggml，"它"丢了 |
+| "那 Q4_K_M 又是什么？" | ev=2，量化 + GGUF 张量存储格式 | **ev=0**，编出"衡量模型在 Q4 期间的性能表现" → verify `no-evidence` fail |
+| "它会让模型跑得更快吗？" | ev=3，router 走检索 | router 判 direct 不检索，直接"是的，它会让模型跑得更快。" |
+
+4 轮累计耗时：首次联网 64.98 s → `--offline` 重放 7.26 s；对照组 13.14 s → 4.01 s。
+记忆比对照贵近一倍，但对照组省下的时间花在编造上。
+
+### ② 证据缓存（`results/evidence_cache.json`，24h TTL，`--offline` 只读缓存）
+
+DeepWiki 同一题每次返回细节不同（第 9 节的已知缺口）。现在 key = `sha1(source|repo|question)`，
+命中即不联网。live 列取自 `results/rag_loop_live.json`（首次联网），cache 列取自
+`results/rag_loop_memory.json`（杀掉 server 后脚本自己拉起、`--offline` 重放那次）。
+
+| 轮 | live | cache 命中 |
+|---|---|---|
+| GGUF↔llama.cpp | 16.00 s | 2.71 s |
+| Q4_K_M 精度损失 | 16.81 s | 1.45 s |
+| 三组 13 轮总计 | 118.56 s | 22.33 s |
+
+跨 4 次运行（首次 live、cache 首触、两次 `--offline`）：**13/13 轮证据逐字一致**——DeepWiki
+曾是唯一的非确定源，现已消除。
+文本层面只用入库的两个 artifact 复核：`rag_loop_live.json` vs `rag_loop_memory.json` →
+回复 13/13 逐字相同，verdict 12/13；唯一变化的那行是记忆组第 4 轮，它原先被误判成幻觉（见③）。
+但别当定理：server prompt cache 处于热状态时，同代码的另一次 `--offline` 重放只有 8/13 逐字相同
+（分叉形如"同机器上的回放是可靠的" ↔ "会丢失或损坏"，并顺着历史传给后续轮），verdict 仍 13/13。
+结论：可复现的是**证据与结论**；逐字文本取决于 server 的缓存状态。
+
+### ③ verify 不再是玩具
+
+交集只证明"抄了"，不证明"抄对"。四道机检 + 一道参考：
+
+- `invented_numbers`：答案里带精度含义的数字（小数/百分比/≥3 位）不在证据里 → fail
+  （正是第 9 节那个 0.121 的形态）
+- `unsupported_terms`：证据里没有的英文技术词 >1 个 → fail
+- `on_topic`：检索词锚点必须出现在答案里，否则算答非所问
+- 证据池 = 本轮 + 本会话历史证据。只查本轮时，第 4 轮复述第 1 轮证据里的 `Header Section`
+  被判成幻觉——误杀，测出来的
+- `judge`：第二遍让模型自查"答案用到资料了吗"，只记录不作门禁。0.6B 判 0.6B 不可信，
+  实测连"只回答 是/否"都守不住（答成"答案用到了资料"）
+- `hits` 采样改 sorted：set 遍历顺序受 hash 随机化影响，判定不变但记录会抖，重放要求下必须钉死
+
+回归：独立 5 题 5/5 过、记忆 4 轮 4/4 过、对照组两处按预期 flag（1 处 fail + 1 处 direct 漏网）。
+
+**已知缺口（没藏）**：`router:direct` 完全免检，对照组第 4 轮就是这么蒙的——指代句要靠记忆
+才路由得到，接更多源治不了；0.6B 总结仍会缝合（"模型参数和元数据"重复两遍），换 1.7B/4B 仍是
+下一步；维基 zh API 本机出口仍 403，缓存层对它只能记 miss；server 单实例 `-np 1`，并发要另起端口。
+
+---
+
 *完整 200 轮原始记录见 `results/` 目录。*

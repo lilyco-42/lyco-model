@@ -3,3 +3,6 @@ models/
 inspect_*.py
 results/rustcc_rss.xml
 .gitignore.tmp
+__pycache__/
+results/*.log
+results/evidence_cache.json
