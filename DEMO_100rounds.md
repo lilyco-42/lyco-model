@@ -97,4 +97,30 @@
 
 ---
 
+## 8. rag_loop 全自动闭环（OODA per-turn 落地）
+
+`rag_loop.py`：一轮对话 = 一轮 OODA。router（关键词启发式，闲聊直答）→
+检索（维基百科 + DeepWiki 官方 MCP）→ chat 总结 → verify（证据关键词交集）→
+超 2 轮或无证据则认不知道。DeepWiki MCP 已注册进全局 `opencode.json`，所有 agent 可用。
+
+端到端 4 题全过（记录 `results/rag_loop_demo.json`）：
+
+| 问题 | 路由 | 证据源 | 结果 |
+|------|------|--------|------|
+| GGUF 与 llama.cpp 关系 | search | DeepWiki | ✅ 四段结构/Header/KV/单文件容器，全对 |
+| Q4_K_M 含义 | search | DeepWiki | ✅ 4bit K-quant/超块/+0.1754，全对 |
+| Q4_K_M 精度损失 | search | DeepWiki | ✅ +0.1754（此前幻觉成 0.121） |
+| 讲笑话 | direct | — | ✅ 不检索，直接答 |
+
+验证方法论教训（OODA verify 喂回的真实发现）：
+- DeepWiki 工具名是 `ask_wiki_question`、参数是 `repoName`——第一次调错，拿错误信息反推出正确 schema
+- 维基百科 zh API 在本机出口 403（User-Agent 也救不回来），降级：DeepWiki 主力，维基待换出口再验
+- 垃圾证据进 → 幻觉出（第一轮拿报错文本当证据，模型编出 0.121）——检索质量是总闸门
+- 笑话类 direct 问题不能套"说不知道"模板；verify 不能把 prompt 回显算进交集
+
+结论：chat 委派 search agent 的架构成立——router（笨规则）+ DeepWiki MCP（证据）+
+chat（总结）+ verify（交集检查）。剩余缺口：lilyco 私有文档本地检索、RSS 接入。
+
+---
+
 *完整 200 轮原始记录见 `results/` 目录。*

@@ -1,0 +1,109 @@
+[
+ {
+  "question": "什么是 GGUF？它和 llama.cpp 是什么关系？",
+  "routed_search": true,
+  "evidence": [
+   "【DeepWiki:ggml-org/llama.cpp】您正在询问 GGUF 文件格式及其与 `llama.cpp` 项目的关系 。\n\n## 什么是 GGUF？\n\nGGUF（GGML Universal File）是一种二进制文件格式，由 `llama.cpp` 项目原生使用 。它被设计为针对大型语言模型（LLMs）优化的单一文件容器格式，旨在实现高效的内存映射、可扩展的元数据存储以及对各种模型架构和张量类型的支持 。\n\nGGUF 文件由四个主要部分组成 ：\n1.  **Header Section (头部区)**：包含基本格式信息、版本和后续数组的数量 。\n2.  **KV Metadata Section (KV 元数据区)**：存储描述模型属性的键值对 。\n3.  **Tensor Info Section (张量信息区)**：指定张量元数据（名称、形状、类型）以及数据段内的偏移量 。\n4.  **Tensor Data Section (张量数据区)**：原始序列化的张量数据，通常是量化的权重矩阵，为高效访问而对齐 。\n\nGGUF 支持多种数据类型，包括整数、浮点数、布尔值、字符串和数组 。\n\n## GGUF 与 llama.cpp 的关系\n\n`llama.cpp` 是一个高性能库和工具包，旨在在各种硬件平台上高效运行大型语言模型（LLM）和视觉语言模型（VLM）推理 。GGUF 是 `llama.cpp` 项目中用于存储模型权"
+  ],
+  "retrieve_notes": [
+   "round1:__ERR__ wiki: http=403",
+   "round1:deepwiki-hit:ggml-org/llama.cpp"
+  ],
+  "verify": {
+   "pass": true,
+   "reason": "overlap=35",
+   "hits": [
+    "可扩展的元数据存储以及对",
+    "Header",
+    "LLM",
+    "GGUF",
+    "File",
+    "是一种二进制文件格式",
+    "各种模型架构和张量类型的",
+    "Tensor"
+   ]
+  },
+  "total_elapsed": 15.34,
+  "response": "Loading model... \r\n\r\n▄▄ ▄▄\r\n██ ██\r\n██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄\r\n██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██\r\n██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀\r\n                                    ██    ██\r\n                                    ▀▀    ▀▀\r\n\r\nbuild      : b11045-2b1847030\r\nmodel      : D:\\gal\\AliceInCradle\\lyco-model\\models\\chat_slm_qwen3_0p6b-Q4_K_M.gguf\r\nftype      : Q4_K - Medium\r\nmodalities : text\r\n\r\navailable commands:\r\n  /exit or Ctrl+C     stop or exit\r\n  /regen              regenerate the last response\r\n  /clear              clear the chat history\r\n  /read <file>        add a text file\r\n  /glob <pattern>     add text files using globbing pattern\r\n\r\n\r\n\r\n> 【检索到的资料】\r\n【DeepWiki:ggml-org/llama.cpp】您正在询问 GGUF 文件格式及其与 `llama.cpp` 项目的关系 。\r\n\r\n## 什么是 GGUF？\r\n\r\nGGUF（GGML Universal File）是一种二进制文件格式，由 `llama.cpp` 项目原生使用 。它被设计为针对大型语言模型（LLMs）优化的单一文件容器格式，旨在实现高效的内存映射、可扩展的元数据存储以及对各种模型架构和张量类型的支持 。\r\n\r\nGGUF 文件由四个主要部分组成  ... (truncated)\r\nGGUF是一种用于存储大型语言模型（LLM）的二进制文件格式，由 `llama.cpp` 项目原生使用。GGUF包含四个主要部分，包括 Header Section、KV Metadata Section、Tensor Info Section 和 Tensor Data Section。它支持多种数据类型，并用于实现高效的内存映射、可扩展的元数据存储和对各种模型架构和张量类型的支持。GGUF是 `llama.cpp` 项目中用于存储模型权重的单一文件容器格式。",
+  "gen_ts": 99.5,
+  "elapsed": 3.72,
+  "rc": 0
+ },
+ {
+  "question": "什么是模型量化？Q4_K_M 是什么意思？",
+  "routed_search": true,
+  "evidence": [
+   "【DeepWiki:ggml-org/llama.cpp】模型量化是一种通过将模型权重从高精度格式（如32位浮点数）压缩到低位格式（如4位整数）来减小模型大小和提高推理速度的技术 。这个过程可能会导致一定的精度损失，通常通过困惑度（Perplexity, ppl）或Kullback–Leibler散度（kld）来衡量 。\n\n`Q4_K_M` 是 `llama.cpp` 项目中支持的一种特定的4位K-量化格式 。\n\n### 模型量化目的\n模型量化的主要目的是减少模型大小和加速推理 。在 `llama.cpp` 中，量化利用了 `GGML` 张量库的块基方法，将模型权重张量分成可管理的块，每个块独立量化，并带有局部比例因子和可选的偏移量，以最大程度地减少精度损失 。\n\n### `Q4_K_M` 详解\n`Q4_K_M` 是一种4位K-量化格式，属于K-Quants类别 。K-Quants使用“超块”大小（`QK_K = 256`）和分层比例来更好地保留敏感权重中的模型保真度 。\n\n在 `llama.cpp` 的 `tools/quantize/quantize.cpp` 文件中，`Q4_K_M` 被定义为 `LLAMA_FTYPE_MOSTLY_Q4_K_M`，并附有描述“4.58G, +0.1754 ppl @ Llama-3-8B” 。这表明它在Llama-3-8B模型上的大小约为4.58GB，并且相比原始模型，困惑度增加了0.1754 。"
+  ],
+  "retrieve_notes": [
+   "round1:__ERR__ wiki: http=403",
+   "round1:deepwiki-hit:ggml-org/llama.cpp"
+  ],
+  "verify": {
+   "pass": true,
+   "reason": "overlap=38",
+   "hits": [
+    "被定义为",
+    "精度损失",
+    "量化格式",
+    "来衡量",
+    "属于K",
+    "Llama",
+    "速度的技术",
+    "超块"
+   ]
+  },
+  "total_elapsed": 17.93,
+  "response": "Loading model... \r\n\r\n▄▄ ▄▄\r\n██ ██\r\n██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄\r\n██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██\r\n██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀\r\n                                    ██    ██\r\n                                    ▀▀    ▀▀\r\n\r\nbuild      : b11045-2b1847030\r\nmodel      : D:\\gal\\AliceInCradle\\lyco-model\\models\\chat_slm_qwen3_0p6b-Q4_K_M.gguf\r\nftype      : Q4_K - Medium\r\nmodalities : text\r\n\r\navailable commands:\r\n  /exit or Ctrl+C     stop or exit\r\n  /regen              regenerate the last response\r\n  /clear              clear the chat history\r\n  /read <file>        add a text file\r\n  /glob <pattern>     add text files using globbing pattern\r\n\r\n\r\n\r\n> 【检索到的资料】\r\n【DeepWiki:ggml-org/llama.cpp】模型量化是一种通过将模型权重从高精度格式（如32位浮点数）压缩到低位格式（如4位整数）来减小模型大小和提高推理速度的技术 。这个过程可能会导致一定的精度损失，通常通过困惑度（Perplexity, ppl）或Kullback–Leibler散度（kld）来衡量 。\r\n\r\n`Q4_K_M` 是 `llama.cpp` 项目中支持的一种特定的4位K-量化格式 。\r\n\r\n### 模型量化目的\r\n模型量化的 ... (truncated)\r\n模型量化是一种通过将模型权重从高精度格式压缩到低位格式来减小模型大小和提高推理速度的技术。Q4_K_M 是一种4位K-量化格式，属于K-Quants类别。它使用“超块”大小和分层比例来更好地保留敏感权重中的模型保真度。在 `llama.cpp` 中，`Q4_K_M` 被定义为 `LLAMA_FTYPE_MOSTLY_Q4_K_M`，并附有描述“4.58G, +0.1754 ppl @ Llama-3-8B”。",
+  "gen_ts": 96.9,
+  "elapsed": 4.25,
+  "rc": 0
+ },
+ {
+  "question": "llama.cpp 里 Q4_K_M 的精度损失是多少？",
+  "routed_search": true,
+  "evidence": [
+   "【DeepWiki:ggml-org/llama.cpp】`llama.cpp` 中的 `Q4_K_M` 量化会引入精度损失，这种损失通常通过困惑度 (Perplexity, ppl) 和/或 Kullback–Leibler 散度 (KLD) 来衡量 。虽然文档中没有直接给出 `Q4_K_M` 的具体精度损失数值，但它提供了与其他量化方法相比的性能指标 。\n\n## Q4_K_M 量化概述\n\n`Q4_K_M` 是一种量化方法，旨在减小模型大小并加快推理速度，但可能会牺牲一定的精度 。在 `llama.cpp` 中，你可以使用 `llama-quantize` 工具将模型量化为 `Q4_K_M` 格式 。\n\n## 精度损失衡量\n\n精度损失通常通过以下指标衡量：\n*   **困惑度 (Perplexity, ppl)**：衡量语言模型预测样本的准确性，值越低表示模型性能越好 。\n*   **Kullback–Leibler 散度 (KLD)**：衡量两个概率分布之间的差异，值越低表示量化模型与原始模型之间的差异越小 。\n\n## Q4_K_M 性能指标\n\n虽然没有直接的“精度损失”百分比，但 `tools/quantize/README.md` 文件中提供了 `meta-llama/Llama-3.1-8B` 模型在不同量化方案下的性能对比数据 。\n\n对于 `Q4_K_M` 量化，`meta-llama/Llama-3.1-8B` 模型的性能指"
+  ],
+  "retrieve_notes": [
+   "round1:__ERR__ wiki: http=403",
+   "round1:deepwiki-hit:ggml-org/llama.cpp"
+  ],
+  "verify": {
+   "pass": true,
+   "reason": "overlap=29",
+   "hits": [
+    "KLD",
+    "但它提供了与其他量化方法",
+    "来衡量",
+    "精度损失",
+    "Perplexity",
+    "虽然文档中没有直接给出",
+    "org",
+    "中的"
+   ]
+  },
+  "total_elapsed": 15.08,
+  "response": "Loading model... \r\n\r\n▄▄ ▄▄\r\n██ ██\r\n██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄\r\n██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██\r\n██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀\r\n                                    ██    ██\r\n                                    ▀▀    ▀▀\r\n\r\nbuild      : b11045-2b1847030\r\nmodel      : D:\\gal\\AliceInCradle\\lyco-model\\models\\chat_slm_qwen3_0p6b-Q4_K_M.gguf\r\nftype      : Q4_K - Medium\r\nmodalities : text\r\n\r\navailable commands:\r\n  /exit or Ctrl+C     stop or exit\r\n  /regen              regenerate the last response\r\n  /clear              clear the chat history\r\n  /read <file>        add a text file\r\n  /glob <pattern>     add text files using globbing pattern\r\n\r\n\r\n\r\n> 【检索到的资料】\r\n【DeepWiki:ggml-org/llama.cpp】`llama.cpp` 中的 `Q4_K_M` 量化会引入精度损失，这种损失通常通过困惑度 (Perplexity, ppl) 和/或 Kullback–Leibler 散度 (KLD) 来衡量 。虽然文档中没有直接给出 `Q4_K_M` 的具体精度损失数值，但它提供了与其他量化方法相比的性能指标 。\r\n\r\n## Q4_K_M 量化概述\r\n\r\n`Q4_K_M` 是一种量化方法，旨在减小模型大小并加快推理速度，但可能会牺牲一定的精度 。� ... (truncated)\r\nQ4_K_M量化方法会引入精度损失，通过困惑度和Kullback-Leibler散度来衡量。虽然文档中没有直接给出Q4_K_M的具体精度损失数值，但提供了与其他量化方法相比的性能指标。",
+  "gen_ts": 88.6,
+  "elapsed": 3.52,
+  "rc": 0
+ },
+ {
+  "question": "给我讲一个笑话",
+  "routed_search": false,
+  "evidence": [],
+  "retrieve_notes": [
+   "router:direct"
+  ],
+  "verify": {
+   "pass": true,
+   "reason": "direct"
+  },
+  "total_elapsed": 3.3,
+  "response": "为什么数学老师总是在办公室里？\r\n\r\n因为办公室里是数学教室。",
+  "gen_ts": 99.9,
+  "elapsed": 3.3,
+  "rc": 0
+ }
+]
