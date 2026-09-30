@@ -213,9 +213,12 @@ def pick_repo(question):
 
 def http():
     # Use system proxy from env (do NOT strip it); sanitize NO_PROXY
-    # (a bare ::1 entry crashes httpx's URL parser).
-    os.environ["NO_PROXY"] = "127.0.0.1,localhost"
+    # (a bare ::1 entry crashes httpx's URL parser). Pop the lowercase variant
+    # FIRST: on Windows os.environ is case-insensitive, so popping it after the
+    # assignment deleted the value just written and the local llama-server call at
+    # 127.0.0.1:8079 went back through the system proxy.
     os.environ.pop("no_proxy", None)
+    os.environ["NO_PROXY"] = "127.0.0.1,localhost"
     return httpx.Client(timeout=30)
 
 
