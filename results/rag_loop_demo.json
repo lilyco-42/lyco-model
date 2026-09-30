@@ -1,92 +1,122 @@
 [
  {
-  "question": "什么是 GGUF？它和 llama.cpp 是什么关系？",
+  "question": "mpkg 记忆包是什么？有什么用？",
   "routed_search": true,
   "evidence": [
-   "【DeepWiki:ggml-org/llama.cpp】您正在询问 GGUF 文件格式及其与 `llama.cpp` 项目的关系 。\n\n## 什么是 GGUF？\n\nGGUF（GGML Universal File）是一种二进制文件格式，由 `llama.cpp` 项目原生使用 。它被设计为针对大型语言模型（LLMs）优化的单一文件容器格式，旨在实现高效的内存映射、可扩展的元数据存储以及对各种模型架构和张量类型的支持 。\n\nGGUF 文件由四个主要部分组成 ：\n1.  **Header Section (头部区)**：包含基本格式信息、版本和后续数组的数量 。\n2.  **KV Metadata Section (KV 元数据区)**：存储描述模型属性的键值对 。\n3.  **Tensor Info Section (张量信息区)**：指定张量元数据（名称、形状、类型）以及数据段内的偏移量 。\n4.  **Tensor Data Section (张量数据区)**：原始序列化的张量数据，通常是量化的权重矩阵，为高效访问而对齐 。\n\nGGUF 支持多种数据类型，包括整数、浮点数、布尔值、字符串和数组 。\n\n## GGUF 与 llama.cpp 的关系\n\n`llama.cpp` 是一个高性能库和工具包，旨在在各种硬件平台上高效运行大型语言模型（LLM）和视觉语言模型（VLM）推理 。GGUF 是 `llama.cpp` 项目中用于存储模型权"
+   "【本地库:lilyco\\docs\\ECOSYSTEM_ROADMAP.md】mgui / BitNet / WSL2-Linux-Kernel 实测非 fork（独立仓），BitNet 为 P3 参考件、WSL2 有 ⭐3 —— 不归档。\n\n## P1 契约上收（进行中）\n\nmpkg 格式上收 lystack 为单一契约源：\n- `lystack/proto/mpkg/mpkg.schema.json`（JSON Schema 2020-12）\n- golden 向量（样例包 → 期望 content-id / blob sha256，canon_json = 递归键排序 + 紧凑序列化）\n- lilyco-mpkg 内嵌 golden 一致性测试；cache-node 验证器对齐同一向量\n- 消除三处实现（lilyco-mpkg / cache-node / mpkg-registry 前端）的格式漂移\n\n## P2 结构重组（进行中）\n\n- **lyco_agent 拆仓**：`cloudstudio/` 运维脚本（a10_* 系列）迁私有 ops 仓，主仓只留 agent 核心 + 文档 —— 治理 374 文件低内聚\n- **cache-node we",
+   "【本地库:mpkg-registry\\README.md】# mpkg-registry —— 记忆包注册表\n\n> **学习一次，所有 agent 复用。** 内容寻址、可回放验证、信任随回放复利。\n> GitHub repo 即 registry（零基建，可镜像、可 U 盘传、可离线 fork）。\n\n## 1. 目录 = 真相，index.json = 派生物\n\n| 路径 | 角色 | 谁写 |\n|---|---|---|\n| `packages/*.mpkg` | **包文件本体**。identity = content-id（`sha256:` 前缀）；文件名 `<name>-<version>-<id12>.mpkg` 必须与实算 id 一致 | `mpkg.py publish` |\n| `attestations/<name>/<id12>/*.json` | **独立回放回执**（每台机器一次真实回放一份）。信任的唯一来源 | `mpkg.py attest` |\n| `index.json` | **派生索引**。= f(packages/, attestations/) —— 计数实算、身份实算、顺序确定 | `tools/"
   ],
   "retrieve_notes": [
-   "round1:__ERR__ wiki: http=403",
-   "round1:deepwiki-hit:ggml-org/llama.cpp"
+   "local:2",
+   "deepwiki:skip-no-repo"
   ],
   "verify": {
    "pass": true,
-   "reason": "overlap=35",
+   "reason": "overlap=4",
    "hits": [
-    "可扩展的元数据存储以及对",
-    "Header",
-    "LLM",
-    "GGUF",
-    "File",
-    "是一种二进制文件格式",
-    "各种模型架构和张量类型的",
-    "Tensor"
+    "一致",
+    "registry",
+    "本地库",
+    "mpkg"
    ]
   },
-  "total_elapsed": 15.34,
-  "response": "Loading model... \r\n\r\n▄▄ ▄▄\r\n██ ██\r\n██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄\r\n██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██\r\n██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀\r\n                                    ██    ██\r\n                                    ▀▀    ▀▀\r\n\r\nbuild      : b11045-2b1847030\r\nmodel      : D:\\gal\\AliceInCradle\\lyco-model\\models\\chat_slm_qwen3_0p6b-Q4_K_M.gguf\r\nftype      : Q4_K - Medium\r\nmodalities : text\r\n\r\navailable commands:\r\n  /exit or Ctrl+C     stop or exit\r\n  /regen              regenerate the last response\r\n  /clear              clear the chat history\r\n  /read <file>        add a text file\r\n  /glob <pattern>     add text files using globbing pattern\r\n\r\n\r\n\r\n> 【检索到的资料】\r\n【DeepWiki:ggml-org/llama.cpp】您正在询问 GGUF 文件格式及其与 `llama.cpp` 项目的关系 。\r\n\r\n## 什么是 GGUF？\r\n\r\nGGUF（GGML Universal File）是一种二进制文件格式，由 `llama.cpp` 项目原生使用 。它被设计为针对大型语言模型（LLMs）优化的单一文件容器格式，旨在实现高效的内存映射、可扩展的元数据存储以及对各种模型架构和张量类型的支持 。\r\n\r\nGGUF 文件由四个主要部分组成  ... (truncated)\r\nGGUF是一种用于存储大型语言模型（LLM）的二进制文件格式，由 `llama.cpp` 项目原生使用。GGUF包含四个主要部分，包括 Header Section、KV Metadata Section、Tensor Info Section 和 Tensor Data Section。它支持多种数据类型，并用于实现高效的内存映射、可扩展的元数据存储和对各种模型架构和张量类型的支持。GGUF是 `llama.cpp` 项目中用于存储模型权重的单一文件容器格式。",
-  "gen_ts": 99.5,
-  "elapsed": 3.72,
+  "total_elapsed": 4.84,
+  "response": "mpkg 记忆包是指用于记录和管理内存包的文件格式，用于确保内存包的完整性、一致性以及安全性。它可以通过本地库 mpkg-registry 读取和写入，用于实现内存包的管理与维护。",
+  "gen_ts": 92.3,
+  "elapsed": 4.72,
   "rc": 0
  },
  {
-  "question": "什么是模型量化？Q4_K_M 是什么意思？",
+  "question": "纯 Rust 实现的 Luau 运行时是什么？",
   "routed_search": true,
   "evidence": [
-   "【DeepWiki:ggml-org/llama.cpp】模型量化是一种通过将模型权重从高精度格式（如32位浮点数）压缩到低位格式（如4位整数）来减小模型大小和提高推理速度的技术 。这个过程可能会导致一定的精度损失，通常通过困惑度（Perplexity, ppl）或Kullback–Leibler散度（kld）来衡量 。\n\n`Q4_K_M` 是 `llama.cpp` 项目中支持的一种特定的4位K-量化格式 。\n\n### 模型量化目的\n模型量化的主要目的是减少模型大小和加速推理 。在 `llama.cpp` 中，量化利用了 `GGML` 张量库的块基方法，将模型权重张量分成可管理的块，每个块独立量化，并带有局部比例因子和可选的偏移量，以最大程度地减少精度损失 。\n\n### `Q4_K_M` 详解\n`Q4_K_M` 是一种4位K-量化格式，属于K-Quants类别 。K-Quants使用“超块”大小（`QK_K = 256`）和分层比例来更好地保留敏感权重中的模型保真度 。\n\n在 `llama.cpp` 的 `tools/quantize/quantize.cpp` 文件中，`Q4_K_M` 被定义为 `LLAMA_FTYPE_MOSTLY_Q4_K_M`，并附有描述“4.58G, +0.1754 ppl @ Llama-3-8B” 。这表明它在Llama-3-8B模型上的大小约为4.58GB，并且相比原始模型，困惑度增加了0.1754 。"
+   "【RustCC:写了个纯 Rust 实现的 Luau 语言与 JIT 虚拟机 ulua】GitHub · Playground 在线体验 · Crates.io\n最近开源了 ulua，一个用纯 Rust 实现的 Luau 语言运行时。Luau 是 Roblox 基于 Lua 5.1 深度改造演进的脚本语言，具备渐进静态类型系统、寄存器虚拟机和编译优化管线。\n在此之前，在 Rust 中嵌入使用 Luau 主要依赖基于 C++ 源码的 FFI 绑定（例如 mlua 的 luau feature）。使用 C++ 绑定需要依赖 C/C++ 交叉编译工具链，在需要静态编译、移植到嵌入式平台或编译为 WebAssembly 在浏览器内无缝运行时，配置流程会繁琐许多。\nulua 项目基于早期从 来源:https://rustcc.cn/article?id=ae4f691d-a220-4903-8989-78f2847f109b",
+   "【RustCC:使用 Rust 宏实现基于 Sea-ORM 的乐观锁样板代码自动化】在昨天的文章中，我们讨论了乐观锁（Optimistic Locking）作为高并发场景下保证数据一致性的重要手段。但乐观锁的实现，尤其是基于版本号（Version）或时间戳（Updated At）的 CAS (Compare-and-Swap) 模式，往往需要在应用的每个 Repository 中重复编写大量的样板代码。\n今天的核心主题是：如何利用 Rust 过程宏的强大能力，将这些繁琐的持久化逻辑自动化，让开发者只需声明字段，即可获得健壮的乐观锁支持。\n\n宏架构：分治与协作\n实现一个完整的、自动化的乐观锁流程，需要宏在两个不同的代码层面进行注入和协作：\n\n数据变更层 (ActiveModel 来源:https://rustcc.cn/article?id=1e3818da-3c6a-46eb-89ab-3e3144fc362c",
+   "【本地库:lilyco\\readme.md】er-flash 类 agent preset（首轮 core 工具过滤），新会话第一轮看不到 mcp 工具 —— 让模型先调用任意一次工具，下一轮全目录放开。\n- 插件无 `dsh.bundle` 时是 plain dependency，patch insert 显式引用其 name 即可加载。\n- 加/改插件后必须**重启 dsh web**（可用 `tasklist` 验证 `lbrush-windows.exe --mcp` 子进程确认插件已连接）。\n\n## Testing\n\n本地：\n\n```bash\n# Run all tests\ncargo test --workspace\n\n# Run a specific crate\ncargo test -p lilyco-core\ncargo t"
   ],
   "retrieve_notes": [
-   "round1:__ERR__ wiki: http=403",
-   "round1:deepwiki-hit:ggml-org/llama.cpp"
+   "rss:2",
+   "local:2"
   ],
   "verify": {
    "pass": true,
-   "reason": "overlap=38",
+   "reason": "overlap=17",
    "hits": [
-    "被定义为",
-    "精度损失",
-    "量化格式",
-    "来衡量",
-    "属于K",
-    "Llama",
-    "速度的技术",
-    "超块"
+    "Luau",
+    "Lua",
+    "使用",
+    "基于",
+    "RustCC",
+    "交叉编译工具链",
+    "虚拟机",
+    "寄存器虚拟机和编译优化管"
    ]
   },
-  "total_elapsed": 17.93,
-  "response": "Loading model... \r\n\r\n▄▄ ▄▄\r\n██ ██\r\n██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄\r\n██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██\r\n██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀\r\n                                    ██    ██\r\n                                    ▀▀    ▀▀\r\n\r\nbuild      : b11045-2b1847030\r\nmodel      : D:\\gal\\AliceInCradle\\lyco-model\\models\\chat_slm_qwen3_0p6b-Q4_K_M.gguf\r\nftype      : Q4_K - Medium\r\nmodalities : text\r\n\r\navailable commands:\r\n  /exit or Ctrl+C     stop or exit\r\n  /regen              regenerate the last response\r\n  /clear              clear the chat history\r\n  /read <file>        add a text file\r\n  /glob <pattern>     add text files using globbing pattern\r\n\r\n\r\n\r\n> 【检索到的资料】\r\n【DeepWiki:ggml-org/llama.cpp】模型量化是一种通过将模型权重从高精度格式（如32位浮点数）压缩到低位格式（如4位整数）来减小模型大小和提高推理速度的技术 。这个过程可能会导致一定的精度损失，通常通过困惑度（Perplexity, ppl）或Kullback–Leibler散度（kld）来衡量 。\r\n\r\n`Q4_K_M` 是 `llama.cpp` 项目中支持的一种特定的4位K-量化格式 。\r\n\r\n### 模型量化目的\r\n模型量化的 ... (truncated)\r\n模型量化是一种通过将模型权重从高精度格式压缩到低位格式来减小模型大小和提高推理速度的技术。Q4_K_M 是一种4位K-量化格式，属于K-Quants类别。它使用“超块”大小和分层比例来更好地保留敏感权重中的模型保真度。在 `llama.cpp` 中，`Q4_K_M` 被定义为 `LLAMA_FTYPE_MOSTLY_Q4_K_M`，并附有描述“4.58G, +0.1754 ppl @ Llama-3-8B”。",
-  "gen_ts": 96.9,
-  "elapsed": 4.25,
+  "total_elapsed": 4.21,
+  "response": "这段资料描述了 RustCC 项目中开源的 ulua 语言与 JIT 虚拟机，这是一种基于 Rust 实现的 Luau 语言运行时，支持渐进静态类型系统、寄存器虚拟机和编译优化管线。它基于早期开源的 rustcc.cn 上的文章，使用 Rust 语言编写，并使用 C++ 交叉编译工具链。",
+  "gen_ts": 91.6,
+  "elapsed": 4.11,
+  "rc": 0
+ },
+ {
+  "question": "什么是 GGUF？它和 llama.cpp 是什么关系？",
+  "routed_search": true,
+  "evidence": [
+   "【本地库:lilyco\\lilyco-bitnet\\docs\\BITNET_BRIDGE.md】itNet b1.58-2B 进程内推理 |\n| `roots` | 客户端 roots/list | 模型文件所在目录 |\n| 依赖 | 客户端声明 sampling 能力 | 一个 ~1.1GB gguf 文件 |\n| 隐私 | prompt 出设备 | **数据不出设备** |\n\n## 2. 模型下载与放置\n\n官方 gguf（I2_S 量化，~1.1GB）：\n\n```bash\n# 方式 A：huggingface-cli\nhuggingface-cli download microsoft/bitnet-b1.58-2B-4T-gguf \\\n  ggml-model-i2_s.gguf --local-dir ~/.lilyco/models\n\n# 方式 B：直接 curl\ncurl -L -o ~/.lilyco/models/bitnet-b1.58-2b-i2_s.gguf \\\n  https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf/resolve/main/ggml-model-i2_s.gguf\n```\n\n（",
+   "【DeepWiki:ggml-org/llama.cpp】您正在询问 GGUF 文件格式是什么，以及它与 `llama.cpp` 项目的关系。\n\nGGUF（GGML Universal File）是 `llama.cpp` 项目原生使用的一种二进制文件格式，专为大型语言模型（LLMs）设计，旨在实现高效的内存映射、可扩展的元数据存储以及支持多样化的模型架构和张量类型。\n\n## GGUF 格式概述\n\nGGUF 文件由四个主要部分组成：\n1.  **Header Section (头部)**：包含基本格式信息、版本和后续数组的数量。\n2.  **KV Metadata Section (键值元数据)**：存储描述模型属性的键值对。\n3.  **Tensor Info Section (张量信息)**：指定张量的元数据（名称、形状、类型）以及数据段内的偏移量。\n4.  **Tensor Data Section (张量数据)**：原始序列化的张量数据，通常是量化后的权重矩阵，为高效访问而对齐。\n\nGGUF 文件格式的详细结构在 `ggml/include/gguf.h` 文件中有描述。\n\n## GGUF 与 llama.cpp 的关系\n\nGGUF 是 `llama.cpp` 项目中用于存储和加载大型语言模型的主要文件格式。\n\n*   **模型存储**：`llama.cpp` 使用 GGUF 格式来存储各种大型语言模型，包括 Llama、Qwen"
+  ],
+  "retrieve_notes": [
+   "local:1",
+   "deepwiki:ggml-org/llama.cpp"
+  ],
+  "verify": {
+   "pass": true,
+   "reason": "overlap=17",
+   "hits": [
+    "语言模型的主要文件格式",
+    "使用",
+    "KV",
+    "头部",
+    "类型",
+    "文件",
+    "GGUF",
+    "文件格式"
+   ]
+  },
+  "total_elapsed": 17.54,
+  "response": "GGUF 是 `llama.cpp` 项目中用于存储和加载大型语言模型的主要文件格式。它由四个主要部分组成，包括头部、KV metadata、Tensor Info 和 Tensor Data。GGUF 格式在 `llama.cpp` 中使用，用于实现高效的内存映射、可扩展的元数据存储以及支持多样化的模型架构和张量类型。",
+  "gen_ts": 85.7,
+  "elapsed": 4.35,
   "rc": 0
  },
  {
   "question": "llama.cpp 里 Q4_K_M 的精度损失是多少？",
   "routed_search": true,
   "evidence": [
-   "【DeepWiki:ggml-org/llama.cpp】`llama.cpp` 中的 `Q4_K_M` 量化会引入精度损失，这种损失通常通过困惑度 (Perplexity, ppl) 和/或 Kullback–Leibler 散度 (KLD) 来衡量 。虽然文档中没有直接给出 `Q4_K_M` 的具体精度损失数值，但它提供了与其他量化方法相比的性能指标 。\n\n## Q4_K_M 量化概述\n\n`Q4_K_M` 是一种量化方法，旨在减小模型大小并加快推理速度，但可能会牺牲一定的精度 。在 `llama.cpp` 中，你可以使用 `llama-quantize` 工具将模型量化为 `Q4_K_M` 格式 。\n\n## 精度损失衡量\n\n精度损失通常通过以下指标衡量：\n*   **困惑度 (Perplexity, ppl)**：衡量语言模型预测样本的准确性，值越低表示模型性能越好 。\n*   **Kullback–Leibler 散度 (KLD)**：衡量两个概率分布之间的差异，值越低表示量化模型与原始模型之间的差异越小 。\n\n## Q4_K_M 性能指标\n\n虽然没有直接的“精度损失”百分比，但 `tools/quantize/README.md` 文件中提供了 `meta-llama/Llama-3.1-8B` 模型在不同量化方案下的性能对比数据 。\n\n对于 `Q4_K_M` 量化，`meta-llama/Llama-3.1-8B` 模型的性能指"
+   "【DeepWiki:ggml-org/llama.cpp】`llama.cpp` 中的 `Q4_K_M` 量化会引入精度损失，这是量化过程的固有特性 。这种精度损失通常通过困惑度 (Perplexity, ppl) 和/或 Kullback–Leibler 散度 (KLD) 来衡量 。\n\n## Q4_K_M 量化概述\n\n`Q4_K_M` 是一种量化方法，旨在减小模型大小并加快推理速度 。它将模型权重从高精度格式（例如 32 位浮点数）转换为 4 位整数 。\n\n## 精度损失的衡量\n\n`llama.cpp` 的 `tools/quantize/README.md` 文件中提供了针对 `meta-llama/Llama-3.1-8B` 模型不同量化方法的性能指标，其中包括 `Q4_K_M` 。这些指标包括：\n\n*   **bits/weight**: `Q4_K_M` 的 `bits/weight` 为 4.8944 。\n*   **size (GiB)**: 对于 8B 模型，`Q4_K_M` 的模型大小为 4.58 GiB 。\n*   **prompt processing t/s @ 512**: 821.81 ±21.44 。\n*   **text generation t/s @ 128**: 71.93 ±1.52 。\n\n这些数值可以与未量化的 `F16` 模型进行比较，以评估 `Q4_K_M` 的相对性能和精度损失 。例如，`F"
   ],
   "retrieve_notes": [
-   "round1:__ERR__ wiki: http=403",
-   "round1:deepwiki-hit:ggml-org/llama.cpp"
+   "local:0",
+   "deepwiki:ggml-org/llama.cpp"
   ],
   "verify": {
    "pass": true,
-   "reason": "overlap=29",
+   "reason": "overlap=19",
    "hits": [
-    "KLD",
-    "但它提供了与其他量化方法",
     "来衡量",
-    "精度损失",
+    "generation",
     "Perplexity",
-    "虽然文档中没有直接给出",
-    "org",
-    "中的"
+    "的相对性能和精度损失",
+    "Leibler",
+    "text",
+    "以评估",
+    "GiB"
    ]
   },
-  "total_elapsed": 15.08,
-  "response": "Loading model... \r\n\r\n▄▄ ▄▄\r\n██ ██\r\n██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄\r\n██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██\r\n██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀\r\n                                    ██    ██\r\n                                    ▀▀    ▀▀\r\n\r\nbuild      : b11045-2b1847030\r\nmodel      : D:\\gal\\AliceInCradle\\lyco-model\\models\\chat_slm_qwen3_0p6b-Q4_K_M.gguf\r\nftype      : Q4_K - Medium\r\nmodalities : text\r\n\r\navailable commands:\r\n  /exit or Ctrl+C     stop or exit\r\n  /regen              regenerate the last response\r\n  /clear              clear the chat history\r\n  /read <file>        add a text file\r\n  /glob <pattern>     add text files using globbing pattern\r\n\r\n\r\n\r\n> 【检索到的资料】\r\n【DeepWiki:ggml-org/llama.cpp】`llama.cpp` 中的 `Q4_K_M` 量化会引入精度损失，这种损失通常通过困惑度 (Perplexity, ppl) 和/或 Kullback–Leibler 散度 (KLD) 来衡量 。虽然文档中没有直接给出 `Q4_K_M` 的具体精度损失数值，但它提供了与其他量化方法相比的性能指标 。\r\n\r\n## Q4_K_M 量化概述\r\n\r\n`Q4_K_M` 是一种量化方法，旨在减小模型大小并加快推理速度，但可能会牺牲一定的精度 。� ... (truncated)\r\nQ4_K_M量化方法会引入精度损失，通过困惑度和Kullback-Leibler散度来衡量。虽然文档中没有直接给出Q4_K_M的具体精度损失数值，但提供了与其他量化方法相比的性能指标。",
-  "gen_ts": 88.6,
-  "elapsed": 3.52,
+  "total_elapsed": 16.08,
+  "response": "Q4_K_M量化会引入精度损失，这些精度损失通常通过困惑度 (Perplexity, ppl) 和/或 Kullback–Leibler 散度 (KLD) 来衡量。根据资料，`Q4_K_M` 的精度损失为 4.8944，模型大小为 4.58 GiB，对于 8B 模型的 `prompt processing t/s` 为 821.81 ±21.44，`text generation t/s` 为 71.93 ±1.52。这些数值可以与未量化的 `F16` 模型进行比较，以评估 `Q4_K_M` 的相对性能和精度损失。",
+  "gen_ts": 94.0,
+  "elapsed": 4.91,
   "rc": 0
  },
  {
@@ -100,10 +130,10 @@
    "pass": true,
    "reason": "direct"
   },
-  "total_elapsed": 3.3,
-  "response": "为什么数学老师总是在办公室里？\r\n\r\n因为办公室里是数学教室。",
-  "gen_ts": 99.9,
-  "elapsed": 3.3,
+  "total_elapsed": 3.16,
+  "response": "为什么程序员总是很忙？\r\n\r\n因为他们总是想解决一个问题，但是他们不知道他们需要做什么。",
+  "gen_ts": 101.7,
+  "elapsed": 3.16,
   "rc": 0
  }
 ]

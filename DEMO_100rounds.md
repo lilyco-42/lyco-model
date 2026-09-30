@@ -119,7 +119,31 @@
 - 笑话类 direct 问题不能套"说不知道"模板；verify 不能把 prompt 回显算进交集
 
 结论：chat 委派 search agent 的架构成立——router（笨规则）+ DeepWiki MCP（证据）+
-chat（总结）+ verify（交集检查）。剩余缺口：lilyco 私有文档本地检索、RSS 接入。
+chat（总结）+ verify（交集检查）。
+
+## 9. 本地库 + RSS 接入（gh 自家 repo + rustcc.cn/rss）
+
+`retrieve()` 升级为多源排序：mpkg/lilyco 类问题 → 本地 gh-clone repo 优先；
+Rust 类 → RustCC RSS 优先；repo 问题 → DeepWiki；其余默认顺序。取满 2 源
+（证据上限 1200 字），不再首中即停。RSS 1 小时本地缓存（`results/rustcc_rss.xml`）。
+
+5 题验证（记录 `results/rag_loop_demo.json`）：
+
+| 问题 | 路由 | 证据源 | 结果 |
+|------|------|--------|------|
+| mpkg 记忆包是什么 | search | 本地 mpkg-registry README | ✅ 内容寻址/可回放，答对 |
+| 纯 Rust 的 Luau 运行时 | search | RustCC 当日 ulua 文章 | ✅ 寄存器虚拟机/渐进类型，答对 |
+| GGUF 与 llama.cpp 关系 | search | 本地 + DeepWiki | ✅ 四段结构/Header/KV，全对 |
+| Q4_K_M 精度损失 | search | DeepWiki | ⚠️ 此轮 DeepWiki 未给 +0.1754，模型用表格数作答（4.58GiB/速度），有据、无编造 |
+| 讲笑话 | direct | — | ✅ 不检索 |
+
+修 bug 记录（验证喂回）：
+- router 漏"是什么"句式 → 补触发词；"什么/关系"等高频词污染检索 → 停用词表 + anchor 规则（alnum≥2 或中文≥3 字才算锚点）
+- 长 prompt 回显被截断 → 按 `...(truncated)` 标记切答案；去掉 `--simple-io` 后短 prompt 回显固定为 `"> "+prompt`
+- DeepWiki `ask_question` 问答是非确定性的——同一题两次返回细节不同，关键数字以多次为准
+
+结论：四源（本地/RSS/DeepWiki/维基降级）+ router + verify 的闭环成立。
+维基 zh API 在本机出口 403 仍是已知缺口；RSS/本地已补上，百科类走 DeepWiki 顶。
 
 ---
 

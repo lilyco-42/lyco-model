@@ -16,9 +16,15 @@ CHAT_MODEL = os.path.join(MODEL_DIR, "chat_slm_qwen3_0p6b-Q4_K_M.gguf")
 DEEPWIKI_MCP = "https://mcp.deepwiki.com/mcp"
 
 # Router: knowledge questions trigger search; chit-chat goes direct.
-SEARCH_TRIGGERS = ["什么是", "什么叫", "为何", "为什么", "如何", "怎么",
+SEARCH_TRIGGERS = ["什么是", "是什么", "什么叫", "是啥", "啥是", "何为",
+                   "为何", "为什么", "如何", "怎么",
                    "介绍", "含义", "意思", "关系", "区别", "是谁", "有哪些",
                    "最新", "多少", "何时"]
+
+RETRIEVE_STOP = {"什么", "么是", "什么是", "是什么", "怎么", "为什么", "为什",
+                 "如何", "哪些", "多少", "介绍", "含义", "意思", "关系",
+                 "怎样", "何为", "是啥", "啥是", "什么用", "有什么", "干什么",
+                 "用处", "作用", "这是什么", "那是什么", "它和", "和", "的"}
 # repo-question -> DeepWiki repo mapping (extensible)
 REPO_MAP = [("llama", "ggml-org/llama.cpp"),
             ("gguf", "ggml-org/llama.cpp"),
@@ -28,6 +34,110 @@ REPO_MAP = [("llama", "ggml-org/llama.cpp"),
 
 STOPWORDS = set("什么是为什么如何怎么的了着是在与和或一个以及"
                 "什么是吗呢吧啊呀")
+
+KB_DIR = r"D:\gal\AliceInCradle\kb"
+RSS_URL = "https://rustcc.cn/rss"
+RSS_CACHE = os.path.join(OUTPUT_DIR, "rustcc_rss.xml")
+RSS_TTL = 3600
+
+
+def tokens(question):
+    toks = set()
+    for w in re.findall(r"[A-Za-z0-9_+\-#]{2,}", question):
+        toks.add(w.lower())
+    for run in re.findall(r"[\u4e00-\u9fff]{2,}", question):
+        toks.add(run)
+        for i in range(len(run) - 1):
+            toks.add(run[i:i + 2])
+    return toks
+
+
+def score_text(toks, text):
+    tl = text.lower()
+    return sum(1 for t in toks
+               if t not in RETRIEVE_STOP and (t in tl or t in text))
+
+
+def is_anchor(t):
+    if re.fullmatch(r"[A-Za-z0-9_+\-#]{2,}", t):
+        return True
+    return len(t) >= 3 and t not in RETRIEVE_STOP
+
+
+def has_anchor(toks, text):
+    tl = text.lower()
+    return any(is_anchor(t) and (t in tl or t in text) for t in toks)
+
+
+def local_search(question, topn=2):
+    """Local kb (gh-cloned repos): keyword score over md/toml/txt."""
+    toks = tokens(question)
+    hits = []
+    if not os.path.isdir(KB_DIR):
+        return []
+    for root, dirs, files in os.walk(KB_DIR):
+        dirs[:] = [d for d in dirs
+                   if d not in (".git", "target", "node_modules",
+                                ".obsidian")]
+        for fn in files:
+            if not fn.lower().endswith((".md", ".markdown", ".txt",
+                                        ".toml")):
+                continue
+            p = os.path.join(root, fn)
+            try:
+                with open(p, encoding="utf-8", errors="replace") as f:
+                    text = f.read()
+            except Exception:
+                continue
+            s = score_text(toks, text)
+            if s >= 2 and has_anchor(toks, text):
+                idx = max([text.find(t) for t in toks if t in text],
+                          default=0)
+                start = max(0, idx - 100)
+                rel = os.path.relpath(p, KB_DIR)
+                hits.append((s, f"【本地库:{rel}】{text[start:start + 500]}"))
+    hits.sort(key=lambda x: -x[0])
+    return [h[1] for h in hits[:topn]]
+
+
+def rss_search(client, question, topn=2):
+    """RustCC RSS: fetch (1h cache) -> keyword match title+desc."""
+    import xml.etree.ElementTree as ET
+    toks = tokens(question)
+    try:
+        if (os.path.exists(RSS_CACHE) and
+                time.time() - os.path.getmtime(RSS_CACHE) < RSS_TTL):
+            with open(RSS_CACHE, encoding="utf-8",
+                      errors="replace") as f:
+                xml_text = f.read()
+        else:
+            r = client.get(RSS_URL, headers=UA)
+            r.raise_for_status()
+            xml_text = r.text
+            with open(RSS_CACHE, "w", encoding="utf-8") as f:
+                f.write(xml_text)
+        root = ET.fromstring(xml_text)
+    except Exception as e:
+        return [], [f"rss-err: {str(e)[:100]}"]
+    scored = []
+    for item in root.iter("item"):
+        title = item.findtext("title") or ""
+        link = item.findtext("link") or ""
+        desc = re.sub(r"<[^>]+>", "",
+                      item.findtext("description") or "")[:300]
+        s = score_text(toks, title) * 3 + score_text(toks, desc)
+        if s >= 2 and (has_anchor(toks, title) or has_anchor(toks, desc)):
+            scored.append((s, f"【RustCC:{title}】{desc} 来源:{link}"))
+    scored.sort(key=lambda x: -x[0])
+    return [s[1] for s in scored[:topn]], []
+
+
+def source_order(question):
+    if any(k in question for k in ("mpkg", "lilyco", "lyco", "记忆包")):
+        return ["local", "deepwiki", "rss", "wiki"]
+    if re.search(r"[Rr]ust|cargo|日报", question):
+        return ["rss", "local", "deepwiki", "wiki"]
+    return ["local", "deepwiki", "rss", "wiki"]
 
 
 def need_search(question):
@@ -125,32 +235,56 @@ def deepwiki_ask(client, repo, question):
         return f"__ERR__ deepwiki: {str(e)[:120]}"
 
 
-def retrieve(question, max_rounds=2):
-    """OODA Observe/Orient: gather evidence, up to max_rounds."""
+def retrieve(question, max_rounds=2, max_chars=1200):
+    """OODA Observe/Orient: gather up to max_rounds sources (no early
+    stop: a weak local hit must not block a better DeepWiki hit)."""
     client = http()
-    evidence = []
-    notes = []
+    evidence, notes = [], []
     repo = pick_repo(question)
-    for rnd in range(1, max_rounds + 1):
-        w = wiki_search(client, question)
-        if w and not w.startswith("__ERR__"):
-            evidence.append(w)
-            notes.append(f"round{rnd}:wiki-hit")
-        elif w:
-            notes.append(f"round{rnd}:{w}")
-        else:
-            notes.append(f"round{rnd}:wiki-empty")
-        if repo and rnd == 1:
-            d = deepwiki_ask(client, repo, question)
-            if d and not d.startswith("__ERR__"):
-                evidence.append(d)
-                notes.append(f"round{rnd}:deepwiki-hit:{repo}")
-            elif d:
-                notes.append(f"round{rnd}:{d}")
-        if evidence or rnd >= max_rounds:
+    tried = 0
+    for src in source_order(question):
+        if tried >= max_rounds:
             break
+        if src == "local":
+            hits = local_search(question)
+            notes.append(f"local:{len(hits)}")
+            evidence += hits
+            tried += 1
+        elif src == "rss":
+            hits, errs = rss_search(client, question)
+            notes += errs if not hits else [f"rss:{len(hits)}"]
+            evidence += hits
+            tried += 1
+        elif src == "deepwiki":
+            if repo:
+                d = deepwiki_ask(client, repo, question)
+                if d and not d.startswith("__ERR__"):
+                    evidence.append(d)
+                    notes.append(f"deepwiki:{repo}")
+                elif d:
+                    notes.append(d[:80])
+            else:
+                notes.append("deepwiki:skip-no-repo")
+            tried += 1
+        elif src == "wiki":
+            w = wiki_search(client, question)
+            if w and not w.startswith("__ERR__"):
+                evidence.append(w)
+                notes.append("wiki:hit")
+            elif w:
+                notes.append(w[:80])
+            else:
+                notes.append("wiki:empty")
+            tried += 1
     client.close()
-    return evidence, notes
+    # cap total evidence for the 0.6B context window
+    kept, total = [], 0
+    for ev in evidence:
+        if total >= max_chars:
+            break
+        kept.append(ev[:max_chars - total])
+        total += len(kept[-1])
+    return kept, notes
 
 
 def dec(b):
@@ -179,17 +313,18 @@ def summarize(question, evidence, searched):
     t0 = time.time()
     p = subprocess.run(
         [LLAMA_CLI, "-m", CHAT_MODEL, "-p", prompt, "-n", "256",
-         "--single-turn", "--simple-io", "--no-display-prompt"],
+         "--single-turn", "--no-display-prompt"],
         capture_output=True, timeout=180)
     dt = time.time() - t0
     out = dec(p.stdout) + dec(p.stderr)
     m = re.search(r"Generation:\s*([\d.]+)\s*t/s", out)
-    # answer = text after the LAST occurrence of the question
-    # (echo may truncate long prompts, but the short question survives)
-    if question in out:
-        body = out.split(question)[-1]
+    # long-prompt echo is truncated with a "...(truncated)" marker and the
+    # answer follows it; short prompts echo verbatim as "> "+prompt
+    if "(truncated)" in out:
+        body = out.split("(truncated)")[-1]
     else:
-        body = out
+        marker = "> " + prompt
+        body = out.split(marker)[-1] if marker in out else out
     body = re.sub(r"\[ ?Prompt:.*", "", body)
     body = body.split("Exiting...")[0].strip()
     return {"response": body[-3000:],
@@ -230,8 +365,9 @@ def answer(question):
 
 if __name__ == "__main__":
     demo = [
+        "mpkg 记忆包是什么？有什么用？",
+        "纯 Rust 实现的 Luau 运行时是什么？",
         "什么是 GGUF？它和 llama.cpp 是什么关系？",
-        "什么是模型量化？Q4_K_M 是什么意思？",
         "llama.cpp 里 Q4_K_M 的精度损失是多少？",
         "给我讲一个笑话",
     ]
