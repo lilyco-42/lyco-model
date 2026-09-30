@@ -1,0 +1,19 @@
+{
+ "model": "chat_slm_qwen3_0p6b-Q4_K_M.gguf",
+ "note": "the error text below is fed in manually to show what the model does with junk evidence; the current code never caches it",
+ "gate_rejects_this_text": true,
+ "evidence_used": [
+  "【DeepWiki:ggml-org/llama.cpp】Error processing question: Client error '429 Too Many Requests' for url 'https://api.devin.ai/ada/query' For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429"
+ ],
+ "question": "量化有什么缺点？",
+ "response": "1. 无法处理大规模数据，因为每次请求都会触发一次429错误，导致请求次数过多。\n\n2. 无法处理实时数据，因为每次请求都会触发一次429错误，导致请求次数过多。\n\n3. 无法处理高并发请求，因为每次请求都会触发一次429错误，导致请求次数过多。\n\n4. 无法处理大规模数据，因为每次请求都会触发一次429错误，导致请求次数过多。",
+ "verify": {
+  "pass": false,
+  "reason": "low-overlap,off-topic",
+  "overlap": 0,
+  "hits": [],
+  "invented_numbers": [],
+  "unsupported_terms": [],
+  "on_topic": false
+ }
+}

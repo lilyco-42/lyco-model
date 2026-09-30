@@ -18,12 +18,21 @@ import httpx
 
 MODEL_DIR = r"D:\gal\AliceInCradle\lyco-model\models"
 OUTPUT_DIR = r"D:\gal\AliceInCradle\lyco-model\results"
-CHAT_MODEL = os.path.join(MODEL_DIR, "chat_slm_qwen3_0p6b-Q4_K_M.gguf")
 SERVER_BIN = r"D:\APP\scoop\shims\llama-server.exe"
 SERVER_LOG = os.path.join(OUTPUT_DIR, "llama_server.log")
 HOST, PORT = "127.0.0.1", 8079
 BASE = f"http://{HOST}:{PORT}"
 N_CTX = "8192"
+
+
+def arg_value(flag, default=None):
+    return sys.argv[sys.argv.index(flag) + 1] if flag in sys.argv else default
+
+
+# --model so the same suite can be replayed against a different summarizer.
+CHAT_MODEL = arg_value("--model") or os.path.join(
+    MODEL_DIR, "chat_slm_qwen3_0p6b-Q4_K_M.gguf")
+OUT_TAG = arg_value("--tag", "rag_loop_memory")
 
 CACHE_FILE = os.path.join(OUTPUT_DIR, "evidence_cache.json")
 EVIDENCE_TTL = 86400          # 24h: DeepWiki/RSS text is stable enough
@@ -60,6 +69,16 @@ RSS_TTL = 3600
 # Anaphora: a turn that refers back to the previous topic instead of naming it.
 ANAPHORA = ["它", "他", "她", "这个", "那个", "这些", "那些", "其中", "还有",
             "然后", "继续", "刚才", "前面", "上面", "又", "这样", "那样"]
+
+# Routing is narrower than rewriting: the discourse markers above may borrow a
+# topic for search, but "然后给我讲个笑话" must stay chit-chat. Only something
+# that actually points at the world (a referent, or a prediction/explanation
+# ask) forces a retrieval round -- otherwise a factual question with no
+# 什么/为什么 cue used to skip search and get rubber-stamped by verify.
+REFERENTIAL = ["它", "他", "她", "它们", "其中", "这个", "那个", "这些", "那些",
+               "这样", "那样", "刚才", "前面", "上面"]
+PREDICTION_CUES = ["会不会", "能不能", "是不是", "有没有", "影响", "导致",
+                   "需要", "支持", "适合", "缺点", "优点", "可靠", "安全", "准确"]
 
 # Memory window: prior user/assistant turns kept in the prompt. The 0.6B model
 # loses the thread long before the context window fills up, so cap by content.
@@ -191,6 +210,16 @@ def http():
 
 UA = {"User-Agent": "lyco-rag/0.1 (local RAG demo; contact: lyco42)"}
 
+# A 200 response is not necessarily an answer: DeepWiki relays upstream
+# failures inside `content`, and that junk used to be cached as evidence and
+# fed to the model (第 8 节的"垃圾证据进 -> 幻觉出"从缓存层回来了).
+ERR_MARKERS = ("Error processing question", "Too Many Requests", "Client error",
+               "Server error", "Traceback", "for url ")
+
+
+def looks_like_error(text):
+    return any(m in text for m in ERR_MARKERS)
+
 
 def wiki_search(client, question):
     """Wikipedia zh: opensearch -> summary. Returns evidence str or ''."""
@@ -256,7 +285,10 @@ def deepwiki_ask(client, repo, question):
             texts = [c.get("text", "") for c in contents if c.get("type")
                      in ("text",)]
             if texts:
-                return f"【DeepWiki:{repo}】{''.join(texts)[:600]}"
+                body = ''.join(texts)
+                if looks_like_error(body):
+                    return f"__ERR__ deepwiki: {body[:120]}"
+                return f"【DeepWiki:{repo}】{body[:600]}"
         err = next((m.get("error") for m in msgs2 if m.get("error")), None)
         return f"__ERR__ deepwiki: {str(err)[:120]}" if err else ""
     except Exception as e:
@@ -306,6 +338,9 @@ def cached_lookup(source, question, fetch, repo=""):
     key = cache_key(source, question, repo)
     hit = cache_get(key, allow_stale=OFFLINE)
     if hit is not None:
+        if looks_like_error(hit):
+            cache().pop(key, None)
+            return "", f"{source}:cache-dropped-error"
         return hit, f"{source}:cache"
     if OFFLINE:
         return "", f"{source}:cache-miss-offline"
@@ -476,6 +511,20 @@ def digit_claims(text):
                if re.search(r"[.,%]\d|\d{3}", n))
 
 
+def relevance_terms(question):
+    """Content terms an answer must touch to count as answering. is_anchor()
+    deliberately drops 2-char Chinese strings for retrieval noise, but 量化 and
+    缺点 are exactly what a correct answer repeats -- judging relevance with
+    that rule marked correct answers off-topic."""
+    return [t for t in tokens(question)
+            if len(t) >= 2 and t not in RETRIEVE_STOP]
+
+
+DECLINE = ["不知道", "不清楚", "不了解", "没有相关", "没有关于",
+           "没有足够", "没有具体", "无法确定", "无法回答", "请提供", "提供更多",
+           "尚未", "没听说过"]
+
+
 def verify(question, evidence, response, searched=True, anchors=None,
            prior_evidence=()):
     """OODA Re-observe. Overlap alone only proves the model copied; it does
@@ -486,10 +535,21 @@ def verify(question, evidence, response, searched=True, anchors=None,
     with memory a fact learned two turns ago is still supported, and claiming
     it again must not read as a hallucination."""
     if not searched:
-        return {"pass": True, "reason": "direct"}
+        # A direct turn is not evidence-grounded, but it still must not hand
+        # out made-up precision. Chit-chat passes; "延迟是 12.5ms" does not.
+        pool = question + "\n" + "\n".join(prior_evidence)
+        fab = sorted(n for n in digit_claims(response) if n not in pool)
+        return {"pass": not fab,
+                "reason": "direct" if not fab else "direct-unsourced-numbers",
+                "invented_numbers": fab}
     ev_all = list(evidence) + list(prior_evidence)
     if not ev_all:
-        return {"pass": "不知道" in response, "reason": "no-evidence"}
+        # No evidence: the only acceptable answer is an explicit decline.
+        # Match the family of declines, not the literal "不知道" -- a model
+        # that says "我没有关于这一术语的具体信息" did the right thing.
+        said = next((d for d in DECLINE if d in response), None)
+        return {"pass": said is not None, "reason": "no-evidence",
+                "decline": said or ""}
     hay = "\n".join(ev_all) + "\n" + question
     hay_l = hay.lower()
 
@@ -506,8 +566,8 @@ def verify(question, evidence, response, searched=True, anchors=None,
     unsup = sorted(t for t in latin_terms(response) if t.lower() not in hay_l)
     fab_num = sorted(n for n in digit_claims(response) if n not in hay)
 
-    anch = anchors if anchors is not None else tokens(question)
-    anch = [a for a in anch if is_anchor(a)]
+    anch = anchors if anchors is not None else relevance_terms(question)
+    anch = [a for a in anch if len(a) >= 2]
     rel = any(a in response or a.lower() in response.lower() for a in anch)
 
     reasons = []
@@ -565,6 +625,19 @@ class Conversation:
     def is_followup(self, q):
         return bool(self.topic) and any(a in q for a in ANAPHORA)
 
+    def needs_evidence(self, q):
+        """Route to search whenever the turn makes a factual ask -- not only
+        when it happens to contain a 什么/为什么 phrase. Without this, "它会让模型
+        跑得更快吗？" and "Q4_K_M 影响精度吗？" went direct and verify (which
+        trusts direct turns) rubber-stamped the guess."""
+        if need_search(q) or any(c in q for c in PREDICTION_CUES):
+            return True
+        if not self.topic:
+            return False
+        # A yes/no question asked in the middle of a knowledge conversation is
+        # about that knowledge ("精度会掉吗？"), and it may carry no referent.
+        return "吗" in q or any(r in q for r in REFERENTIAL)
+
     def retrieval_query(self, q):
         """An '它是什么' turn has no retrievable terms; borrow the previous
         topic so search still finds something. topic is the *resolved* query,
@@ -577,7 +650,7 @@ class Conversation:
     def ask(self, q, run_judge=False):
         t0 = time.time()
         rq = self.retrieval_query(q)
-        routed = need_search(q) or (rq != q and need_search(rq))
+        routed = self.needs_evidence(q) or (rq != q and need_search(rq))
         if routed:
             ev, notes = retrieve(rq)
         else:
@@ -586,7 +659,7 @@ class Conversation:
         s = summarize(q, ev, searched=routed, history=hist)
         prior = [self.evidence_pool] if self.evidence_pool else ()
         v = verify(rq, ev, s["response"], searched=routed,
-                   anchors=tokens(rq), prior_evidence=prior)
+                   anchors=relevance_terms(q), prior_evidence=prior)
         rec = {"question": q, "retrieval_query": rq,
                "routed_search": routed, "evidence": ev,
                "retrieve_notes": notes, "memory_turns": len(hist),
@@ -612,18 +685,23 @@ INDEPENDENT = [
     "给我讲一个笑话",
 ]
 
-# One topic carried across turns: turns 2 and 3 name nothing, they only point.
+# One topic carried across turns: turns 2-5 name nothing, they only point.
+# Turn 5 has no 什么/为什么 phrasing at all, and turn 6 must stay chit-chat
+# even inside a knowledge conversation -- both are routing regressions.
 MEMORY_SESSION = [
     "什么是 GGUF？",
     "它和 llama.cpp 是什么关系？",
     "那 Q4_K_M 又是什么？",
     "它会让模型跑得更快吗？",
+    "量化有什么缺点？",
+    "给我讲个笑话",
 ]
 
 
 def run():
     proc = ensure_server()
-    out = {"independent": [], "memory": [], "memory_control": []}
+    out = {"model": os.path.basename(CHAT_MODEL), "tag": OUT_TAG,
+           "independent": [], "memory": [], "memory_control": []}
     try:
         print("=== A. independent turns (regression) ===", flush=True)
         for i, q in enumerate(INDEPENDENT, 1):
@@ -657,7 +735,7 @@ def run():
         if proc is not None:
             proc.terminate()
 
-    dst = os.path.join(OUTPUT_DIR, "rag_loop_memory.json")
+    dst = os.path.join(OUTPUT_DIR, f"{OUT_TAG}.json")
     with open(dst, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
     print(f"\nsaved {dst}")
