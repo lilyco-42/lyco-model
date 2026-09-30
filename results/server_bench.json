@@ -1,0 +1,369 @@
+{
+ "max_tokens_cap": 128,
+ "note": "CPU-only llama.cpp build (b11045), -c 8192, temp 0, throughput from server completion_tokens",
+ "cases": [
+  {
+   "label": "0.6B ctx=8192 np=1",
+   "rows": [
+    {
+     "port": 8079,
+     "mode": "sequential x3 (rotating prompts)",
+     "mean_s": 0.85,
+     "min_s": 0.29,
+     "max_s": 1.35,
+     "mean_tokens": 78.3,
+     "tok_s": 92.4
+    },
+    {
+     "port": 8079,
+     "mode": "2 concurrent",
+     "wall_s": 2.13,
+     "per_request_s": [
+      0.9,
+      2.13
+     ],
+     "tokens": 212,
+     "agg_tok_s": 99.7
+    },
+    {
+     "port": 8079,
+     "mode": "long prompt (about 5.4k tokens)",
+     "http": 200,
+     "prompt_tokens": 5423,
+     "finish_reason": "stop",
+     "reply_chars": 34,
+     "server_error": ""
+    },
+    {
+     "mode": "memory, idle after load",
+     "per_instance_mb": [
+      1523.3
+     ]
+    },
+    {
+     "mode": "memory after the request rounds",
+     "per_instance_mb": [
+      1599.8
+     ],
+     "pids_measured": [
+      "48120,40592"
+     ],
+     "total_mb": 1599.8
+    }
+   ]
+  },
+  {
+   "label": "0.6B ctx=8192 np=4",
+   "rows": [
+    {
+     "port": 8079,
+     "mode": "sequential x3 (rotating prompts)",
+     "mean_s": 0.75,
+     "min_s": 0.31,
+     "max_s": 1.32,
+     "mean_tokens": 66.3,
+     "tok_s": 89.0
+    },
+    {
+     "port": 8079,
+     "mode": "2 concurrent",
+     "wall_s": 1.39,
+     "per_request_s": [
+      0.74,
+      1.39
+     ],
+     "tokens": 186,
+     "agg_tok_s": 133.9
+    },
+    {
+     "port": 8079,
+     "mode": "long prompt (about 5.4k tokens)",
+     "http": 400,
+     "prompt_tokens": null,
+     "finish_reason": null,
+     "reply_chars": 0,
+     "server_error": "request (5423 tokens) exceeds the available context size (2048 tokens), try increasing it"
+    },
+    {
+     "mode": "memory, idle after load",
+     "per_instance_mb": [
+      1510.8
+     ]
+    },
+    {
+     "mode": "memory after the request rounds",
+     "per_instance_mb": [
+      1570.9
+     ],
+     "pids_measured": [
+      "46984,40568"
+     ],
+     "total_mb": 1570.9
+    }
+   ]
+  },
+  {
+   "label": "1.7B ctx=8192 np=1",
+   "rows": [
+    {
+     "port": 8079,
+     "mode": "sequential x3 (rotating prompts)",
+     "mean_s": 2.4,
+     "min_s": 1.35,
+     "max_s": 3.0,
+     "mean_tokens": 105.0,
+     "tok_s": 43.8
+    },
+    {
+     "port": 8079,
+     "mode": "2 concurrent",
+     "wall_s": 5.62,
+     "per_request_s": [
+      2.85,
+      5.62
+     ],
+     "tokens": 256,
+     "agg_tok_s": 45.5
+    },
+    {
+     "port": 8079,
+     "mode": "long prompt (about 5.4k tokens)",
+     "http": 200,
+     "prompt_tokens": 5423,
+     "finish_reason": "length",
+     "reply_chars": 71,
+     "server_error": ""
+    },
+    {
+     "mode": "memory, idle after load",
+     "per_instance_mb": [
+      2382.4
+     ]
+    },
+    {
+     "mode": "memory after the request rounds",
+     "per_instance_mb": [
+      2480.1
+     ],
+     "pids_measured": [
+      "47872,48080"
+     ],
+     "total_mb": 2480.1
+    }
+   ]
+  },
+  {
+   "label": "1.7B ctx=8192 np=4",
+   "rows": [
+    {
+     "port": 8079,
+     "mode": "sequential x3 (rotating prompts)",
+     "mean_s": 2.24,
+     "min_s": 1.33,
+     "max_s": 2.73,
+     "mean_tokens": 105.7,
+     "tok_s": 47.2
+    },
+    {
+     "port": 8079,
+     "mode": "2 concurrent",
+     "wall_s": 2.86,
+     "per_request_s": [
+      2.86,
+      2.86
+     ],
+     "tokens": 256,
+     "agg_tok_s": 89.5
+    },
+    {
+     "port": 8079,
+     "mode": "long prompt (about 5.4k tokens)",
+     "http": 400,
+     "prompt_tokens": null,
+     "finish_reason": null,
+     "reply_chars": 0,
+     "server_error": "request (5423 tokens) exceeds the available context size (2048 tokens), try increasing it"
+    },
+    {
+     "mode": "memory, idle after load",
+     "per_instance_mb": [
+      2372.9
+     ]
+    },
+    {
+     "mode": "memory after the request rounds",
+     "per_instance_mb": [
+      2448.9
+     ],
+     "pids_measured": [
+      "34984,38420"
+     ],
+     "total_mb": 2448.9
+    }
+   ]
+  },
+  {
+   "label": "0.6B ctx=16384 np=4 (4096 per slot)",
+   "rows": [
+    {
+     "port": 8079,
+     "mode": "sequential x3 (rotating prompts)",
+     "mean_s": 0.73,
+     "min_s": 0.31,
+     "max_s": 1.29,
+     "mean_tokens": 66.3,
+     "tok_s": 91.0
+    },
+    {
+     "port": 8079,
+     "mode": "2 concurrent",
+     "wall_s": 1.35,
+     "per_request_s": [
+      0.74,
+      1.35
+     ],
+     "tokens": 186,
+     "agg_tok_s": 138.0
+    },
+    {
+     "port": 8079,
+     "mode": "long prompt (about 5.4k tokens)",
+     "http": 400,
+     "prompt_tokens": null,
+     "finish_reason": null,
+     "reply_chars": 0,
+     "server_error": "request (5423 tokens) exceeds the available context size (4096 tokens), try increasing it"
+    },
+    {
+     "mode": "memory, idle after load",
+     "per_instance_mb": [
+      2413.1
+     ]
+    },
+    {
+     "mode": "memory after the request rounds",
+     "per_instance_mb": [
+      2473.6
+     ],
+     "pids_measured": [
+      "43940,33100"
+     ],
+     "total_mb": 2473.6
+    }
+   ]
+  },
+  {
+   "label": "0.6B ctx=16384 np=1",
+   "rows": [
+    {
+     "port": 8079,
+     "mode": "sequential x3 (rotating prompts)",
+     "mean_s": 0.82,
+     "min_s": 0.25,
+     "max_s": 1.32,
+     "mean_tokens": 78.3,
+     "tok_s": 95.7
+    },
+    {
+     "port": 8079,
+     "mode": "2 concurrent",
+     "wall_s": 2.1,
+     "per_request_s": [
+      2.1,
+      1.27
+     ],
+     "tokens": 212,
+     "agg_tok_s": 100.9
+    },
+    {
+     "port": 8079,
+     "mode": "long prompt (about 5.4k tokens)",
+     "http": 200,
+     "prompt_tokens": 5423,
+     "finish_reason": "stop",
+     "reply_chars": 34,
+     "server_error": ""
+    },
+    {
+     "mode": "memory, idle after load",
+     "per_instance_mb": [
+      2435.7
+     ]
+    },
+    {
+     "mode": "memory after the request rounds",
+     "per_instance_mb": [
+      2528.2
+     ],
+     "pids_measured": [
+      "47040,20992"
+     ],
+     "total_mb": 2528.2
+    }
+   ]
+  },
+  {
+   "label": "both resident (0.6B + 1.7B, ctx=8192 np=1)",
+   "rows": [
+    {
+     "port": 8079,
+     "mode": "sequential x3 (rotating prompts)",
+     "mean_s": 0.83,
+     "min_s": 0.25,
+     "max_s": 1.37,
+     "mean_tokens": 78.3,
+     "tok_s": 94.4
+    },
+    {
+     "port": 8080,
+     "mode": "sequential x3 (rotating prompts)",
+     "mean_s": 2.23,
+     "min_s": 1.32,
+     "max_s": 2.75,
+     "mean_tokens": 105.0,
+     "tok_s": 47.0
+    },
+    {
+     "port": [
+      8079,
+      8080
+     ],
+     "mode": "both models, 1 request each",
+     "wall_s": 2.83,
+     "per_request_s": [
+      0.69,
+      2.83
+     ]
+    },
+    {
+     "port": 8079,
+     "mode": "long prompt (about 5.4k tokens)",
+     "http": 200,
+     "prompt_tokens": 5423,
+     "finish_reason": "stop",
+     "reply_chars": 34,
+     "server_error": ""
+    },
+    {
+     "mode": "memory, idle after load",
+     "per_instance_mb": [
+      1519.2,
+      2380.7
+     ]
+    },
+    {
+     "mode": "memory after the request rounds",
+     "per_instance_mb": [
+      1607.5,
+      2432.0
+     ],
+     "pids_measured": [
+      "43688,45280",
+      "32560,42744"
+     ],
+     "total_mb": 4039.5
+    }
+   ]
+  }
+ ]
+}

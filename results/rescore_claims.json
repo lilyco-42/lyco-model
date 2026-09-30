@@ -1,0 +1,72 @@
+{
+ "artifacts": {
+  "rag_loop_live.json": {
+   "model": "chat_slm_qwen3_0p6b-Q4_K_M.gguf",
+   "rows": 13,
+   "old_pass": 11,
+   "new_pass": 12,
+   "new_fail": 1,
+   "flips": 1
+  },
+  "rag_loop_memory.json": {
+   "model": "chat_slm_qwen3_0p6b-Q4_K_M.gguf",
+   "rows": 13,
+   "old_pass": 12,
+   "new_pass": 12,
+   "new_fail": 1,
+   "flips": 0
+  },
+  "rag_loop_0p6b_v2.json": {
+   "model": "chat_slm_qwen3_0p6b-Q4_K_M.gguf",
+   "rows": 17,
+   "old_pass": 15,
+   "new_pass": 15,
+   "new_fail": 2,
+   "flips": 0
+  },
+  "rag_loop_1p7b_v2.json": {
+   "model": "Qwen3-1.7B-Q4_K_M.gguf",
+   "rows": 17,
+   "old_pass": 16,
+   "new_pass": 15,
+   "new_fail": 2,
+   "flips": 1
+  }
+ },
+ "flips": [
+  {
+   "artifact": "rag_loop_live.json",
+   "scenario": "memory",
+   "question": "它会让模型跑得更快吗？",
+   "old": [
+    false,
+    "unsupported-terms"
+   ],
+   "new": [
+    true,
+    "overlap=11"
+   ],
+   "invented_numbers": [],
+   "unsupported_terms": [],
+   "response_head": "1. GGUF 是一种用于存储大型语言模型参数和元数据的二进制文件格式，它通过将模型参数压缩为小的二进制向量来减少模型的存储空间和计算开销，从而提高了推理速度。\n\n2. GGUF 文件由四个主要部分组成，包括 Header Section 和 KV Metadata Section，其中 Header Section 包括模型参数和元数据的标识符，KV Me"
+  },
+  {
+   "artifact": "rag_loop_1p7b_v2.json",
+   "scenario": "memory",
+   "question": "量化有什么缺点？",
+   "old": [
+    true,
+    "overlap=6"
+   ],
+   "new": [
+    false,
+    "invented-numbers"
+   ],
+   "invented_numbers": [
+    "8"
+   ],
+   "unsupported_terms": [],
+   "response_head": "量化在模型推理中具有显著的性能优势，但同时也存在一些缺点。以下是量化的主要缺点：\n\n1. **精度损失**：量化会将浮点数转换为低精度整数（如 8-bit），这会导致精度下降，尤其是在需要高精度推理的场景中（如医疗、自动驾驶等）。\n\n2. **模型性能下降**：量化会减少模型的计算精度，可能导致推理速度变慢或模型输出不准确。\n\n3. **模型可解释性降低**"
+  }
+ ]
+}

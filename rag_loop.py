@@ -3,8 +3,10 @@
 Retrieval sources (no self-build, all adopted):
   1. local kb: gh-cloned own repos (KB_DIR)
   2. RustCC RSS (1h file cache)
-  3. DeepWiki official MCP https://mcp.deepwiki.com/mcp (repo knowledge)
-  4. Wikipedia zh API (encyclopedia facts, on-demand)
+  3. DeepWiki official MCP https://mcp.deepwiki.com/mcp (repo knowledge),
+     retried with exponential backoff when it is rate-limited
+Wikipedia is wired out of the rotation: every Wikimedia endpoint 403s from
+this egress (see source_order() and results/source_probe.json).
 
 Runner: llama-server (OpenAI-compatible endpoint, greedy decoding), so a turn
 carries real chat history. llama-cli --single-turn reloaded the model every
@@ -12,6 +14,7 @@ turn and had no context at all -- that was the memory gap.
 
 Network evidence is cached on disk (EVIDENCE_TTL) because DeepWiki answers the
 same question differently on every call; `--offline` replays the cache only.
+Error text inside a 200 response is never cached (looks_like_error).
 """
 import subprocess, json, time, os, re, sys, hashlib
 import httpx
@@ -23,6 +26,9 @@ SERVER_LOG = os.path.join(OUTPUT_DIR, "llama_server.log")
 HOST, PORT = "127.0.0.1", 8079
 BASE = f"http://{HOST}:{PORT}"
 N_CTX = "8192"
+N_PARALLEL = "1"      # -c is the total, split across slots: with -np 4 a slot
+                      # gets 2048 tokens and our evidence prompts are refused
+                      # outright -- results/server_bench.json
 
 
 def arg_value(flag, default=None):
@@ -181,11 +187,16 @@ def rss_search(client, question, topn=2):
 
 
 def source_order(question):
+    # Wikipedia is out of the rotation, not "temporarily failing": from this
+    # egress every Wikimedia endpoint (zh and en, action= and REST, any UA)
+    # returns 403 through the system proxy and times out without a proxy at
+    # all -- results/source_probe.json. Encyclopedia-shaped questions fall
+    # back to DeepWiki; a different egress would need the source re-added.
     if any(k in question for k in ("mpkg", "lilyco", "lyco", "记忆包")):
-        return ["local", "deepwiki", "rss", "wiki"]
+        return ["local", "deepwiki", "rss"]
     if re.search(r"[Rr]ust|cargo|日报", question):
-        return ["rss", "local", "deepwiki", "wiki"]
-    return ["local", "deepwiki", "rss", "wiki"]
+        return ["rss", "local", "deepwiki"]
+    return ["local", "deepwiki", "rss"]
 
 
 def need_search(question):
@@ -221,35 +232,6 @@ def looks_like_error(text):
     return any(m in text for m in ERR_MARKERS)
 
 
-def wiki_search(client, question):
-    """Wikipedia zh: opensearch -> summary. Returns evidence str or ''."""
-    try:
-        r = client.get("https://zh.wikipedia.org/w/api.php",
-                       params={"action": "opensearch", "search": question,
-                               "limit": 3, "format": "json"},
-                       headers=UA)
-        if r.status_code != 200:
-            return f"__ERR__ wiki: http={r.status_code}"
-        titles = r.json()[1]
-        if not titles:
-            return ""
-        title = titles[0]
-        s = client.get(
-            f"https://zh.wikipedia.org/api/rest_v1/page/summary/{title}",
-            headers=UA)
-        if s.status_code != 200:
-            return f"__ERR__ wiki: summary http={s.status_code}"
-        data = s.json()
-        extract = data.get("extract", "")[:600]
-        url = (data.get("content_urls", {})
-               .get("desktop", {}).get("page", ""))
-        if not extract:
-            return ""
-        return f"【维基百科:{title}】{extract} 来源:{url}"
-    except Exception as e:
-        return f"__ERR__ wiki: {str(e)[:120]}"
-
-
 def mcp_rpc(client, session, payload):
     headers = {"Content-Type": "application/json",
                "Accept": "application/json, text/event-stream"}
@@ -267,8 +249,8 @@ def mcp_rpc(client, session, payload):
     return sess, out
 
 
-def deepwiki_ask(client, repo, question):
-    """Official DeepWiki MCP: initialize -> tools/call -> ask_wiki_question."""
+def deepwiki_raw(client, repo, question):
+    """One MCP call. Returns the answer text, '' , or a __ERR__ string."""
     try:
         sess, _ = mcp_rpc(client, None, {
             "jsonrpc": "2.0", "id": 1, "method": "initialize",
@@ -285,14 +267,56 @@ def deepwiki_ask(client, repo, question):
             texts = [c.get("text", "") for c in contents if c.get("type")
                      in ("text",)]
             if texts:
-                body = ''.join(texts)
-                if looks_like_error(body):
-                    return f"__ERR__ deepwiki: {body[:120]}"
-                return f"【DeepWiki:{repo}】{body[:600]}"
+                return ''.join(texts)
         err = next((m.get("error") for m in msgs2 if m.get("error")), None)
         return f"__ERR__ deepwiki: {str(err)[:120]}" if err else ""
     except Exception as e:
         return f"__ERR__ deepwiki: {str(e)[:120]}"
+
+
+RETRY_TRIES = 3
+RETRY_BASE = 2.0      # seconds
+RETRY_MAX = 16.0
+
+
+def is_ratelimit(text):
+    t = text.lower()
+    return ("429" in t or "too many requests" in t
+            or "rate limit" in t or "quota" in t)
+
+
+def backoff_sleeps(tries=RETRY_TRIES, base=RETRY_BASE, limit=RETRY_MAX):
+    """Waits *between* attempts. Deterministic on purpose: a random jitter
+    would make the recorded runs unreplayable, and the limit we hit is a
+    window quota, so only the scale matters (probe: DeepWiki answers the 429
+    in ~0.25 s, so sub-second retries are wasted attempts)."""
+    out = []
+    for i in range(max(tries - 1, 0)):
+        out.append(min(base * (2 ** i), limit))
+    return out
+
+
+def deepwiki_ask(client, repo, question, tries=RETRY_TRIES,
+                 sleeper=time.sleep, call=None):
+    """Official DeepWiki MCP, with exponential backoff on rate limits only.
+    A non-limit error is permanent for this run, so it is not retried."""
+    call = call or (lambda: deepwiki_raw(client, repo, question))
+    waits = backoff_sleeps(tries)
+    attempts = 0
+    for i in range(tries):
+        attempts += 1
+        body = call()
+        if not body:
+            return ""
+        if body.startswith("__ERR__") or looks_like_error(body):
+            if is_ratelimit(body) and i < tries - 1:
+                sleeper(waits[i])
+                continue
+            kind = "ratelimited" if is_ratelimit(body) else "error"
+            return (f"__ERR__ deepwiki {kind} after {attempts} try: "
+                    f"{body[:100]}")
+        return f"【DeepWiki:{repo}】{body[:600]}"
+    return ""
 
 
 # ---------------------------------------------------------------- cache layer
@@ -337,10 +361,12 @@ def cached_lookup(source, question, fetch, repo=""):
     """Return (text, note). Network only on miss, unless --offline."""
     key = cache_key(source, question, repo)
     hit = cache_get(key, allow_stale=OFFLINE)
-    if hit is not None:
-        if looks_like_error(hit):
-            cache().pop(key, None)
+    if hit is not None and looks_like_error(hit):
+        cache().pop(key, None)
+        hit = None                      # drop the poisoned entry, then refetch
+        if OFFLINE:
             return "", f"{source}:cache-dropped-error"
+    if hit is not None:
         return hit, f"{source}:cache"
     if OFFLINE:
         return "", f"{source}:cache-miss-offline"
@@ -386,13 +412,6 @@ def retrieve(question, max_rounds=2, max_chars=1200):
             else:
                 notes.append("deepwiki:skip-no-repo")
             tried += 1
-        elif src == "wiki":
-            txt, note = cached_lookup(
-                "wiki", question, lambda: wiki_search(client, question))
-            if txt:
-                evidence.append(txt)
-            notes.append(note)
-            tried += 1
     client.close()
     # cap total evidence for the 0.6B context window
     kept, total = [], 0
@@ -434,7 +453,7 @@ def ensure_server(model=CHAT_MODEL, timeout=240):
     with open(SERVER_LOG, "ab") as log:
         p = subprocess.Popen(
             [SERVER_BIN, "-m", model, "--host", HOST, "--port", str(PORT),
-             "-c", N_CTX, "-np", "1", "--temp", "0"],
+             "-c", N_CTX, "-np", N_PARALLEL, "--temp", "0"],
             stdout=log, stderr=log)
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -456,7 +475,15 @@ def chat(messages, n_predict=256):
         "max_tokens": n_predict,
         "temperature": 0.0,
         "chat_template_kwargs": {"enable_thinking": False}})
-    r.raise_for_status()
+    if r.status_code >= 400:
+        detail = ""
+        try:
+            detail = (r.json().get("error") or {}).get("message", "")
+        except Exception:
+            pass
+        # e.g. "request (5119 tokens) exceeds the available context size
+        # (2048 tokens)" when -np shrank the per-slot context
+        raise RuntimeError(f"llama-server {r.status_code}: {detail or r.text[:200]}")
     d = r.json()
     dt = time.time() - t0
     text = (d.get("choices") or [{}])[0].get("message", {}).get("content")
@@ -505,10 +532,54 @@ def latin_terms(text):
     return set(re.findall(r"[A-Za-z][A-Za-z0-9_+#.\-]{2,}", text))
 
 
+UNIT_TAIL = (r"\s*-?\s*(?:%|％|bits?|bytes?|[KMGT]i?B|t/s|tok(?:en)?s?|"
+             r"ms|sec(?:ond)?s?|s\b|秒|分钟|小时|天|周|个月|年|倍|x\b)")
+UNIT_RE = re.compile(UNIT_TAIL)
+
+
+def claim_matches(text):
+    """(number, number+unit span) for every precision claim in text."""
+    out = []
+    for m in re.finditer(r"\d+(?:[.,]\d+)?%?", text):
+        n = m.group(0)
+        tail = text[m.end():m.end() + 10]
+        unit = UNIT_RE.match(tail)
+        if re.search(r"[.,%]\d|\d{3}", n) or n.endswith("%") or unit:
+            out.append((n, n + (unit.group(0) if unit else "")))
+    return out
+
+
 def digit_claims(text):
-    """Numbers that carry a precision claim (decimal, %, or 3+ digits)."""
-    return set(n for n in re.findall(r"\d+(?:[.,]\d+)?%?", text)
-               if re.search(r"[.,%]\d|\d{3}", n))
+    """Numbers that carry a precision claim.
+
+    A bare small integer inside prose (a list marker, "第 3 点") is not a
+    claim; a decimal, a percentage, a 3+ digit number, or any number glued to
+    a unit is. The unit case used to slip through: "低精度整数（如 8-bit）"
+    states something concrete, and "8" alone looked harmless."""
+    return set(n for n, _ in claim_matches(text))
+
+
+FLAT = re.compile(r"[\s\-]+")
+
+
+def unsourced_claims(text, hay):
+    """Claim numbers that `hay` does not support.
+
+    Two ways to be supported: the number appears as its own token, or the
+    exact number+unit span appears once whitespace/hyphens are folded away
+    (evidence "400MB" must support an answer saying "400 MB").
+    A token boundary that only excludes digits and dots is not enough --
+    "UINT8" in a list of GGUF tensor types used to "support" an unsourced
+    8-bit claim."""
+    flat_hay = FLAT.sub("", hay)
+    bad = set()
+    for num, span in claim_matches(text):
+        if re.search(rf"(?<![\w.]){re.escape(num)}(?![\w.])", hay):
+            continue
+        if span and FLAT.sub("", span) in flat_hay:
+            continue
+        bad.add(num)
+    return sorted(bad)
 
 
 def relevance_terms(question):
@@ -538,7 +609,7 @@ def verify(question, evidence, response, searched=True, anchors=None,
         # A direct turn is not evidence-grounded, but it still must not hand
         # out made-up precision. Chit-chat passes; "延迟是 12.5ms" does not.
         pool = question + "\n" + "\n".join(prior_evidence)
-        fab = sorted(n for n in digit_claims(response) if n not in pool)
+        fab = unsourced_claims(response, pool)
         return {"pass": not fab,
                 "reason": "direct" if not fab else "direct-unsourced-numbers",
                 "invented_numbers": fab}
@@ -564,7 +635,7 @@ def verify(question, evidence, response, searched=True, anchors=None,
 
     # a claim the evidence never made -> hallucination
     unsup = sorted(t for t in latin_terms(response) if t.lower() not in hay_l)
-    fab_num = sorted(n for n in digit_claims(response) if n not in hay)
+    fab_num = unsourced_claims(response, hay)
 
     anch = anchors if anchors is not None else relevance_terms(question)
     anch = [a for a in anch if len(a) >= 2]

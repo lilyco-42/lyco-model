@@ -1,0 +1,90 @@
+{
+ "deepwiki": [
+  {
+   "try": 1,
+   "elapsed": 0.21,
+   "chars": 193,
+   "is_error_body": true,
+   "head": "Error processing question: Client error '429 Too Many Requests' for url 'https://api.devin.ai/ada/query'\nFor more inform"
+  },
+  {
+   "try": 2,
+   "elapsed": 0.24,
+   "chars": 193,
+   "is_error_body": true,
+   "head": "Error processing question: Client error '429 Too Many Requests' for url 'https://api.devin.ai/ada/query'\nFor more inform"
+  },
+  {
+   "try": 3,
+   "elapsed": 0.2,
+   "chars": 193,
+   "is_error_body": true,
+   "head": "Error processing question: Client error '429 Too Many Requests' for url 'https://api.devin.ai/ada/query'\nFor more inform"
+  }
+ ],
+ "deepwiki_retry_live": {
+  "attempts": 3,
+  "slept_s": [
+   2.0,
+   4.0
+  ],
+  "wall_s": 7.49,
+  "returned": "__ERR__ deepwiki ratelimited after 3 try: Error processing question: Client error '429 Too Many Requests' for url 'https://api.devin.ai/ada/qu",
+  "cached_as_evidence": false
+ },
+ "wikipedia": [
+  {
+   "variant": "zh opensearch (project UA)",
+   "proxy": true,
+   "status": 403,
+   "chars": 1958,
+   "ok_json": false,
+   "head": "<!DOCTYPE html> <html lang=\"en\"> <meta charset=\"utf-8\"> <title>Wikimedia Error</title> <style> * { m"
+  },
+  {
+   "variant": "zh opensearch (browser UA)",
+   "proxy": true,
+   "status": 403,
+   "chars": 1957,
+   "ok_json": false,
+   "head": "<!DOCTYPE html> <html lang=\"en\"> <meta charset=\"utf-8\"> <title>Wikimedia Error</title> <style> * { m"
+  },
+  {
+   "variant": "zh opensearch (no UA)",
+   "proxy": true,
+   "status": 403,
+   "chars": 126,
+   "ok_json": false,
+   "head": "Please set a user-agent and respect our robot policy https://w.wiki/4wJS. See also https://phabricat"
+  },
+  {
+   "variant": "zh REST summary",
+   "proxy": true,
+   "status": 403,
+   "chars": 1958,
+   "ok_json": false,
+   "head": "<!DOCTYPE html> <html lang=\"en\"> <meta charset=\"utf-8\"> <title>Wikimedia Error</title> <style> * { m"
+  },
+  {
+   "variant": "zh action=query extracts",
+   "proxy": true,
+   "status": 403,
+   "chars": 1958,
+   "ok_json": false,
+   "head": "<!DOCTYPE html> <html lang=\"en\"> <meta charset=\"utf-8\"> <title>Wikimedia Error</title> <style> * { m"
+  },
+  {
+   "variant": "en REST summary (fallback)",
+   "proxy": true,
+   "status": 403,
+   "chars": 1957,
+   "ok_json": false,
+   "head": "<!DOCTYPE html> <html lang=\"en\"> <meta charset=\"utf-8\"> <title>Wikimedia Error</title> <style> * { m"
+  },
+  {
+   "variant": "zh no-proxy direct",
+   "proxy": false,
+   "exception": "timed out"
+  }
+ ]
+}
