@@ -1,4 +1,4 @@
 models/
 *.gguf
-inspect_samples.py
+inspect_*.py
 .gitignore.tmp

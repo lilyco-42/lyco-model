@@ -1,0 +1,16 @@
+[
+ {
+  "ok": true,
+  "response": "Loading model... \r\n\r\n▄▄ ▄▄\r\n██ ██\r\n██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄\r\n██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██\r\n██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀\r\n                                    ██    ██\r\n                                    ▀▀    ▀▀\r\n\r\nbuild      : b11045-2b1847030\r\nmodel      : D:\\gal\\AliceInCradle\\lyco-model\\models\\chat_slm_qwen3_0p6b-Q4_K_M.gguf\r\nftype      : Q4_K - Medium\r\nmodalities : text\r\n\r\navailable commands:\r\n  /exit or Ctrl+C     stop or exit\r\n  /regen              regenerate the last response\r\n  /clear              clear the chat history\r\n  /read <file>        add a text file\r\n  /glob <pattern>     add text files using globbing pattern\r\n\r\n\r\n\r\n> 【检索到的资料】\r\nllama.cpp 是用 C/C++ 写的本地大模型推理引擎，轻量，不需要 Python、CUDA 等重型依赖。llama.cpp 使用 GGUF 文件格式。GGUF 支持量化权重和内存映射，降低设备内存带宽占用。GGUF 是单文件二进制格式，包含模型权重、tokenizer 和元数据。来源：https://huggingface.co/docs/transformers/main/community_integrations/llama_cpp\r\n\r\n【用户问题】\r\n什么是 GGUF？它和 llama.cpp 是什么关系？\r\n\r\n要求：� ... (truncated)\r\nGGUF 是一种用于存储模型权重和元数据的二进制格式。它支持量化权重和内存映射，降低设备内存带宽占用。GGUF 是单文件二进制格式，包含模型权重、tokenizer 和元数据。它与 llama.cpp 是基于 GGUF 格式的本地大模型推理引擎，因此 llama.cpp 是使用 GGUF 文件格式来存储模型权重的。\r\n\r\n\n\r\n\r\nExiting...",
+  "gen_ts": 112.5,
+  "elapsed": 3.47,
+  "question": "什么是 GGUF？它和 llama.cpp 是什么关系？"
+ },
+ {
+  "ok": true,
+  "response": "Loading model... \r\n\r\n▄▄ ▄▄\r\n██ ██\r\n██ ██  ▀▀█▄ ███▄███▄  ▀▀█▄    ▄████ ████▄ ████▄\r\n██ ██ ▄█▀██ ██ ██ ██ ▄█▀██    ██    ██ ██ ██ ██\r\n██ ██ ▀█▄██ ██ ██ ██ ▀█▄██ ██ ▀████ ████▀ ████▀\r\n                                    ██    ██\r\n                                    ▀▀    ▀▀\r\n\r\nbuild      : b11045-2b1847030\r\nmodel      : D:\\gal\\AliceInCradle\\lyco-model\\models\\chat_slm_qwen3_0p6b-Q4_K_M.gguf\r\nftype      : Q4_K - Medium\r\nmodalities : text\r\n\r\navailable commands:\r\n  /exit or Ctrl+C     stop or exit\r\n  /regen              regenerate the last response\r\n  /clear              clear the chat history\r\n  /read <file>        add a text file\r\n  /glob <pattern>     add text files using globbing pattern\r\n\r\n\r\n\r\n> 【检索到的资料】\r\nQ4_K_M 是 llama.cpp 的 K-quant 量化预设之一：Q 表示约 4 bit 权重，K 表示 K-quant 系列，M 表示 Medium（中等）的混合精度分配策略（S 小 / M 中 / L 大）。Q4_K_M 在 Llama-3-8B 上约为 4.58G，perplexity 上升约 +0.1754，是默认推荐的平衡档。来源：llama.cpp tools/quantize/quantize.cpp QUANT_OPTIONS；https://github.com/iuliaturc/gguf-docs/blob/main/naming.md\r\n\r\n【用户问题】\r\n什么是模型量化？Q4_K_M 是什么� ... (truncated)\r\n模型量化是指将模型中的参数转换为更小的数值，以减少内存消耗和提高计算速度。Q4_K_M 是 llama.cpp 的 K-quant 量化预设之一，表示约 4 bit 权重，K-quant 系列，M 中等混合精度分配策略，用于平衡量化后的模型性能和精度。在 llama-3-8B 上，Q4-KM 的量化效果约为 4.58G，perplexity 上升约 0.1754，是默认推荐的平衡档。来源：llama.cpp tools/quantize/quantize.cpp QUANT_OPTIONS；https://github.com/iuliaturc/gguf-docs/blob/main/naming.md。\r\n\r\n\n\r\n\r\nExiting...",
+  "gen_ts": 105.7,
+  "elapsed": 4.28,
+  "question": "什么是模型量化？Q4_K_M 是什么意思？"
+ }
+]
